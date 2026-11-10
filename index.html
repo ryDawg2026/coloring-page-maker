@@ -46,9 +46,14 @@ input[type=file]{display:none}
 .card{background:#faf6f0;border-radius:18px;padding:10px;border:2px solid var(--line)}
 .card h3{margin:0 0 8px;font-size:.95rem}
 .card canvas,.card img,.card svg.stage{width:100%;height:auto;display:block;background:#fff;border-radius:12px}
+#outCanvas{
+  image-rendering:-webkit-optimize-contrast;
+  image-rendering:crisp-edges;
+}
 .themes{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
 .chip{appearance:none;border:2px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer;min-height:44px}
 .chip.on{background:#ffe8dc;border-color:var(--accent);color:#a0431a}
+.chip.mode.on{background:#e8f6ff;border-color:var(--accent2);color:#1a5a8a}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
 .thumb{background:#fff;border:2px solid var(--line);border-radius:18px;padding:10px;cursor:pointer;text-align:center;box-shadow:0 3px 0 #efe4d6}
 .thumb:hover{border-color:var(--accent)}
@@ -58,6 +63,7 @@ input[type=file]{display:none}
 .viewer.on{display:block}
 .viewer .frame{background:#fff;border:2px solid var(--line);border-radius:18px;padding:12px}
 .viewer svg{width:100%;height:auto;display:block}
+.outline-only svg .paint{fill:#fff !important}
 textarea,input[type=text]{width:100%;border:2px solid var(--line);border-radius:16px;padding:14px;font:inherit;font-size:1.05rem;resize:vertical;min-height:56px;outline:none;background:#fff}
 textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
 .suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
@@ -69,11 +75,12 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
 .tipbox{margin:22px auto 0;max-width:860px;text-align:center;background:#fff;border-radius:20px;padding:16px;box-shadow:var(--shadow)}
 .tipbox p{margin:0 0 10px;color:var(--soft);font-size:.92rem}
 .footer{text-align:center;color:var(--soft);font-size:.8rem;margin-top:18px}
+.working{font-size:.85rem;font-weight:700;color:#8a5a2a;min-height:1.2em;margin:4px 0 0}
 @media print{
-  body *{visibility:hidden!important}
-  #printArea,#printArea *{visibility:visible!important}
+  body *{visibility:hidden !important}
+  #printArea,#printArea *{visibility:visible !important}
   #printArea{position:fixed;inset:0;margin:0;padding:0;background:#fff}
-  #printArea svg,#printArea canvas,#printArea img{width:100vw!important;height:100vh!important;object-fit:contain;max-width:100%;max-height:100%;}
+  #printArea svg,#printArea canvas,#printArea img{width:100vw !important;height:100vh !important;object-fit:contain;max-width:100%;max-height:100%;}
 }
 </style>
 </head>
@@ -92,10 +99,9 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
     <button class="tab" id="tab-request" role="tab" aria-selected="false">✨ Request a Page</button>
   </nav>
 
-  <!-- PHOTO -->
   <section class="panel on" id="panel-photo" role="tabpanel">
     <h2>Photo to Coloring Page</h2>
-    <p class="help">Pick or snap a photo. We turn it into simple black outlines you can color. Nothing is uploaded.</p>
+    <p class="help">Pick or snap a photo. We turn it into clear lines you can color. Nothing is uploaded.</p>
     <div class="btnrow">
       <label class="btn" for="filePick">📁 Choose photo</label>
       <label class="btn ghost" for="fileCam">📸 Take photo</label>
@@ -105,12 +111,21 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
     <div class="sliders" id="photoControls" hidden>
       <div class="slider">
         <label><span>Detail</span><span id="detailVal">Medium</span></label>
-        <input type="range" id="detail" min="0" max="100" value="55">
+        <input type="range" id="detail" min="0" max="100" value="68">
       </div>
       <div class="slider">
         <label><span>Line thickness</span><span id="thickVal">Medium</span></label>
-        <input type="range" id="thick" min="1" max="6" value="2">
+        <input type="range" id="thick" min="1" max="6" value="3">
       </div>
+      <div>
+        <div class="help" style="margin:0 0 8px">Color style</div>
+        <div class="themes" id="styleChips">
+          <button type="button" class="chip mode on" data-style="outline">Outline only</button>
+          <button type="button" class="chip mode" data-style="tint">Light tint</button>
+          <button type="button" class="chip mode" data-style="bright">Bright colors</button>
+        </div>
+      </div>
+      <div class="working" id="photoWorking"></div>
       <div class="btnrow">
         <button class="mint" id="btnDownloadPhoto" type="button">⬇️ Download PNG</button>
         <button class="sky" id="btnPrintPhoto" type="button">🖨️ Print</button>
@@ -123,10 +138,13 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
     </div>
   </section>
 
-  <!-- PRINTABLES -->
   <section class="panel" id="panel-print" role="tabpanel">
     <h2>Printable Pages</h2>
-    <p class="help">Tap a theme, then tap a page. Print or download — perfect for kids.</p>
+    <p class="help">Tap a theme, then tap a page. Choose Color it in to view, or Outline only to print and color yourself.</p>
+    <div class="themes" id="printModeChips">
+      <button type="button" class="chip mode on" data-libmode="color">Color it in</button>
+      <button type="button" class="chip mode" data-libmode="outline">Outline only</button>
+    </div>
     <div class="themes" id="themeChips"></div>
     <div class="grid" id="printGrid"></div>
     <div class="viewer" id="printViewer">
@@ -139,10 +157,9 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
     </div>
   </section>
 
-  <!-- REQUEST -->
   <section class="panel" id="panel-request" role="tabpanel">
     <h2>Request a Page</h2>
-    <p class="help">Type something fun like “cat riding a fire truck.” We build a cute coloring scene right here on your phone — nothing is sent or saved.</p>
+    <p class="help">Type something fun like “duck on a boat.” We build a cute scene right here on your phone — nothing is sent or saved.</p>
     <textarea id="reqText" rows="2" placeholder="Example: bunny in a rocket with stars" maxlength="120"></textarea>
     <div class="btnrow">
       <button class="lav" id="btnMakeScene" type="button">✨ Make coloring page</button>
@@ -152,6 +169,10 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
     <div class="suggestions" id="safeChips"></div>
     <div id="reqMsg"></div>
     <div class="recognized" id="reqRecognized"></div>
+    <div class="themes" id="reqModeChips">
+      <button type="button" class="chip mode on" data-libmode="color">Color it in</button>
+      <button type="button" class="chip mode" data-libmode="outline">Outline only</button>
+    </div>
     <div class="viewer" id="reqViewer">
       <div class="frame" id="reqFrame"></div>
       <div class="btnrow">
@@ -178,7 +199,6 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
 ========================================================= */
 const TIP_URL = ''; // e.g. 'https://ko-fi.com/yourpage'
 
-/* ---------------- tabs ---------------- */
 const tabs = {
   photo: {btn: document.getElementById('tab-photo'), panel: document.getElementById('panel-photo')},
   print: {btn: document.getElementById('tab-print'), panel: document.getElementById('panel-print')},
@@ -196,36 +216,49 @@ tabs.photo.btn.onclick = ()=>showTab('photo');
 tabs.print.btn.onclick = ()=>showTab('print');
 tabs.request.btn.onclick = ()=>showTab('request');
 
-/* ---------------- tip ---------------- */
 document.getElementById('tipBtn').onclick = ()=>{
   if(TIP_URL && /^https:\/\//i.test(TIP_URL)){
     window.open(TIP_URL, '_blank', 'noopener');
   } else {
-    const n = document.getElementById('tipNote');
-    n.style.display = 'block';
+    document.getElementById('tipNote').style.display = 'block';
   }
 };
 
 /* =========================================================
-   PHOTO → COLORING PAGE (all client-side canvas)
+   PHOTO → COLORING PAGE (high-res, all client-side)
 ========================================================= */
+const MAX_RES = 1600;
 const origCanvas = document.getElementById('origCanvas');
 const outCanvas = document.getElementById('outCanvas');
-const origCtx = origCanvas.getContext('2d', {willReadFrequently:true});
-const outCtx = outCanvas.getContext('2d', {willReadFrequently:true});
+const origCtx = origCanvas.getContext('2d', {willReadFrequently:true, alpha:false});
+const outCtx = outCanvas.getContext('2d', {willReadFrequently:true, alpha:false});
+origCtx.imageSmoothingEnabled = false;
+outCtx.imageSmoothingEnabled = false;
+
 let sourceImg = null;
+let work = null; // {w,h,rgba,gray,lines}
+let photoStyle = 'outline';
 let renderTimer = null;
 
 function labelDetail(v){return v<33?'Less lines':v<66?'Medium':'More lines'}
 function labelThick(v){return v<=2?'Thin':v<=4?'Medium':'Bold'}
+document.getElementById('detailVal').textContent = labelDetail(+document.getElementById('detail').value);
+document.getElementById('thickVal').textContent = labelThick(+document.getElementById('thick').value);
 
 document.getElementById('detail').oninput = e=>{
   document.getElementById('detailVal').textContent = labelDetail(+e.target.value);
-  scheduleRender();
+  scheduleLines();
 };
 document.getElementById('thick').oninput = e=>{
   document.getElementById('thickVal').textContent = labelThick(+e.target.value);
-  scheduleRender();
+  scheduleLines();
+};
+document.getElementById('styleChips').onclick = e=>{
+  const b = e.target.closest('[data-style]');
+  if(!b) return;
+  photoStyle = b.getAttribute('data-style');
+  document.querySelectorAll('#styleChips .chip').forEach(c=>c.classList.toggle('on', c===b));
+  if(work) compositeOutput();
 };
 
 function loadFile(file){
@@ -238,7 +271,7 @@ function loadFile(file){
     document.getElementById('photoControls').hidden = false;
     document.getElementById('photoPreview').hidden = false;
     drawOriginal();
-    renderColoring();
+    computeLines();
   };
   img.onerror = ()=>URL.revokeObjectURL(url);
   img.src = url;
@@ -246,7 +279,7 @@ function loadFile(file){
 document.getElementById('filePick').onchange = e=>loadFile(e.target.files[0]);
 document.getElementById('fileCam').onchange = e=>loadFile(e.target.files[0]);
 document.getElementById('btnClearPhoto').onclick = ()=>{
-  sourceImg = null;
+  sourceImg = null; work = null;
   origCtx.clearRect(0,0,origCanvas.width,origCanvas.height);
   outCtx.clearRect(0,0,outCanvas.width,outCanvas.height);
   document.getElementById('photoControls').hidden = true;
@@ -256,21 +289,23 @@ document.getElementById('btnClearPhoto').onclick = ()=>{
 };
 
 function drawOriginal(){
-  const max = 1000;
+  const max = MAX_RES;
   let w = sourceImg.naturalWidth || sourceImg.width;
   let h = sourceImg.naturalHeight || sourceImg.height;
   const scale = Math.min(1, max / Math.max(w,h));
   w = Math.max(1, Math.round(w*scale));
   h = Math.max(1, Math.round(h*scale));
   origCanvas.width = w; origCanvas.height = h;
+  origCtx.imageSmoothingEnabled = true;
+  origCtx.imageSmoothingQuality = 'high';
   origCtx.fillStyle = '#fff';
   origCtx.fillRect(0,0,w,h);
   origCtx.drawImage(sourceImg, 0,0,w,h);
 }
 
-function scheduleRender(){
+function scheduleLines(){
   clearTimeout(renderTimer);
-  renderTimer = setTimeout(renderColoring, 60);
+  renderTimer = setTimeout(computeLines, 80);
 }
 
 function boxBlurGray(src, w, h, r){
@@ -279,172 +314,328 @@ function boxBlurGray(src, w, h, r){
   const out = new Float32Array(w*h);
   const div = r*2+1;
   for(let y=0;y<h;y++){
-    let sum = 0;
-    for(let x=-r;x<=r;x++){
-      const xx = Math.min(w-1, Math.max(0,x));
-      sum += src[y*w+xx];
-    }
+    let sum=0;
+    for(let x=-r;x<=r;x++) sum += src[y*w+Math.min(w-1,Math.max(0,x))];
     for(let x=0;x<w;x++){
-      tmp[y*w+x] = sum/div;
-      const xAdd = Math.min(w-1, x+r+1);
-      const xSub = Math.max(0, x-r);
-      sum += src[y*w+xAdd] - src[y*w+xSub];
+      tmp[y*w+x]=sum/div;
+      sum += src[y*w+Math.min(w-1,x+r+1)] - src[y*w+Math.max(0,x-r)];
     }
   }
   for(let x=0;x<w;x++){
-    let sum = 0;
-    for(let y=-r;y<=r;y++){
-      const yy = Math.min(h-1, Math.max(0,y));
-      sum += tmp[yy*w+x];
-    }
+    let sum=0;
+    for(let y=-r;y<=r;y++) sum += tmp[Math.min(h-1,Math.max(0,y))*w+x];
     for(let y=0;y<h;y++){
-      out[y*w+x] = sum/div;
-      const yAdd = Math.min(h-1, y+r+1);
-      const ySub = Math.max(0, y-r);
-      sum += tmp[yAdd*w+x] - tmp[ySub*w+x];
+      out[y*w+x]=sum/div;
+      sum += tmp[Math.min(h-1,y+r+1)*w+x] - tmp[Math.max(0,y-r)*w+x];
     }
   }
   return out;
 }
 
-function renderColoring(){
-  if(!sourceImg) return;
-  const w = origCanvas.width, h = origCanvas.height;
-  outCanvas.width = w; outCanvas.height = h;
-  const img = origCtx.getImageData(0,0,w,h);
-  const data = img.data;
-  const gray = new Float32Array(w*h);
-  for(let i=0,p=0;i<data.length;i+=4,p++){
-    gray[p] = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
-  }
-  const detail = +document.getElementById('detail').value;
-  const thick = +document.getElementById('thick').value;
-  // Light smooth so major shapes stay, fur noise drops
-  const pre = boxBlurGray(gray, w, h, 2);
-  const rBig = 3 + Math.round((100-detail)/30);
-  const blurSmall = boxBlurGray(pre, w, h, 1);
-  const blurBig = boxBlurGray(pre, w, h, rBig);
-  const dog = new Float32Array(w*h);
-  for(let i=0;i<dog.length;i++) dog[i] = Math.abs(blurSmall[i] - blurBig[i]);
-
-  const mag = new Float32Array(w*h);
+function median3(src, w, h){
+  const out = new Float32Array(w*h);
+  out.set(src);
+  const a = new Float32Array(9);
   for(let y=1;y<h-1;y++){
     for(let x=1;x<w-1;x++){
-      const i = y*w+x;
-      const gx =
-        -pre[i-w-1]-2*pre[i-1]-pre[i+w-1] +
-         pre[i-w+1]+2*pre[i+1]+pre[i+w+1];
-      const gy =
-        -pre[i-w-1]-2*pre[i-w]-pre[i-w+1] +
-         pre[i+w-1]+2*pre[i+w]+pre[i+w+1];
-      mag[i] = Math.sqrt(gx*gx + gy*gy) + dog[i]*1.4;
-    }
-  }
-  let maxM = 1;
-  for(let i=0;i<mag.length;i++) if(mag[i]>maxM) maxM = mag[i];
-
-  // Canny-like hysteresis: keep strong edges and weak ones connected to them
-  const tHigh = maxM * (0.14 + (100-detail)/100 * 0.22);
-  const tLow  = tHigh * 0.35;
-  const edges = new Uint8Array(w*h);
-  const stack = new Int32Array(w*h);
-  let top = 0;
-  for(let i=0;i<mag.length;i++){
-    if(mag[i] >= tHigh){ edges[i]=2; stack[top++]=i; }
-  }
-  while(top){
-    const p = stack[--top];
-    const x = p%w, y = (p-x)/w;
-    for(let dy=-1;dy<=1;dy++){
-      for(let dx=-1;dx<=1;dx++){
-        if(!dx && !dy) continue;
-        const xx=x+dx, yy=y+dy;
-        if(xx<0||yy<0||xx>=w||yy>=h) continue;
-        const n=yy*w+xx;
-        if(!edges[n] && mag[n]>=tLow){ edges[n]=2; stack[top++]=n; }
+      let k=0;
+      for(let dy=-1;dy<=1;dy++){
+        const row=(y+dy)*w+x;
+        a[k++]=src[row-1]; a[k++]=src[row]; a[k++]=src[row+1];
       }
+      // median of 9, partial selection
+      for(let i=0;i<5;i++){
+        let m=i;
+        for(let j=i+1;j<9;j++) if(a[j]<a[m]) m=j;
+        const t=a[i]; a[i]=a[m]; a[m]=t;
+      }
+      out[y*w+x]=a[4];
     }
   }
-  for(let i=0;i<edges.length;i++) edges[i] = edges[i] ? 1 : 0;
+  return out;
+}
 
-  // Morphological close to reconnect small gaps
-  function dilate(src, rad){
-    const out = new Uint8Array(w*h);
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
-        let on=0;
-        for(let dy=-rad; dy<=rad && !on; dy++){
-          for(let dx=-rad; dx<=rad; dx++){
-            const xx=x+dx, yy=y+dy;
-            if(xx>=0&&yy>=0&&xx<w&&yy<h && src[yy*w+xx]){ on=1; break; }
-          }
+// Cheap edge-preserving smooth: average neighbors within a tonal range
+function rangeSmooth(src, w, h, r, thresh){
+  const out = new Float32Array(w*h);
+  out.set(src);
+  for(let y=r;y<h-r;y++){
+    for(let x=r;x<w-r;x++){
+      const c=src[y*w+x];
+      let sum=0, n=0;
+      for(let dy=-r;dy<=r;dy++){
+        const row=(y+dy)*w;
+        for(let dx=-r;dx<=r;dx++){
+          const v=src[row+x+dx];
+          if(Math.abs(v-c)<=thresh){ sum+=v; n++; }
         }
-        out[y*w+x]=on;
       }
+      out[y*w+x]= n? sum/n : c;
     }
-    return out;
   }
-  function erode(src, rad){
-    const out = new Uint8Array(w*h);
-    for(let y=0;y<h;y++){
-      for(let x=0;x<w;x++){
-        let on=1;
-        for(let dy=-rad; dy<=rad && on; dy++){
-          for(let dx=-rad; dx<=rad; dx++){
-            const xx=x+dx, yy=y+dy;
-            if(xx<0||yy<0||xx>=w||yy>=h || !src[yy*w+xx]){ on=0; break; }
-          }
-        }
-        out[y*w+x]=on;
-      }
-    }
-    return out;
-  }
-  let bin = erode(dilate(edges, 1), 1);
-  bin = dilate(bin, Math.max(0, thick-1));
+  return out;
+}
 
-  // Remove tiny speckles
-  const seen = new Uint8Array(w*h);
-  const st = new Int32Array(w*h);
-  const minSpeck = 12 + Math.round((100-detail)*0.2);
-  for(let i=0;i<w*h;i++){
-    if(!bin[i] || seen[i]) continue;
-    let tp=0, count=0;
-    st[tp++]=i; seen[i]=1;
-    const cells=[];
-    while(tp){
-      const p=st[--tp];
-      cells.push(p); count++;
+function rgbToHsl(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h=0,s=0,l=(max+min)/2;
+  if(max!==min){
+    const d=max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    if(max===r) h=((g-b)/d+(g<b?6:0))/6;
+    else if(max===g) h=((b-r)/d+2)/6;
+    else h=((r-g)/d+4)/6;
+  }
+  return [h,s,l];
+}
+function hslToRgb(h,s,l){
+  const hue2rgb=(p,q,t)=>{
+    if(t<0) t+=1; if(t>1) t-=1;
+    if(t<1/6) return p+(q-p)*6*t;
+    if(t<1/2) return q;
+    if(t<2/3) return p+(q-p)*(2/3-t)*6;
+    return p;
+  };
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else {
+    const q=l<0.5?l*(1+s):l+s-l*s;
+    const p=2*l-q;
+    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+  }
+  return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
+}
+
+function stylizeColor(r,g,b, style){
+  let [h,s,l] = rgbToHsl(r,g,b);
+  if(style==='tint'){
+    // soft pastel: lower sat, raise lightness, then posterize
+    s = Math.min(0.45, s*0.55);
+    l = 0.72 + l*0.18;
+    const levels=6;
+    const q=1/(levels-1);
+    h = Math.round(h/q)*q;
+    s = Math.round(s/q)*q;
+    l = Math.round(l/q)*q;
+    l = Math.min(0.92, Math.max(0.62, l));
+  } else {
+    // bright: punchy posterized colors, still light enough to color over
+    s = Math.min(0.95, s*1.25+0.08);
+    l = 0.48 + l*0.28;
+    const levels=5;
+    const q=1/(levels-1);
+    h = Math.round(h/q)*q;
+    s = Math.min(1, Math.round(s/q)*q);
+    l = Math.round(l/q)*q;
+    l = Math.min(0.84, Math.max(0.38, l));
+  }
+  return hslToRgb(h,s,l);
+}
+
+function computeLines(){
+  if(!sourceImg) return;
+  const w = origCanvas.width, h = origCanvas.height;
+  document.getElementById('photoWorking').textContent = 'Drawing crisp lines…';
+  // yield so the label can paint
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const img = origCtx.getImageData(0,0,w,h);
+    const rgba = img.data;
+    const gray = new Float32Array(w*h);
+    for(let i=0,p=0;i<rgba.length;i+=4,p++){
+      gray[p] = 0.299*rgba[i] + 0.587*rgba[i+1] + 0.114*rgba[i+2];
+    }
+    const detail = +document.getElementById('detail').value;
+    const thick = +document.getElementById('thick').value;
+
+    // 1) denoise, keep edges
+    let g = median3(gray, w, h);
+    g = rangeSmooth(g, w, h, 2, 26 + (100-detail)*0.15);
+
+    // 2) XDoG (extended difference of Gaussians)
+    const sigma = 1 + Math.round((100-detail)/28); // 1..4
+    const blurA = boxBlurGray(boxBlurGray(g,w,h,sigma), w,h,sigma);
+    const blurB = boxBlurGray(boxBlurGray(g,w,h,sigma+2), w,h,sigma+2);
+    const tau = 0.96 + detail/100*0.03;
+    const phi = 14 + detail/8;
+    const eps = -2 + (100-detail)*0.04;
+    const xdog = new Float32Array(w*h);
+    for(let i=0;i<xdog.length;i++){
+      const dog = blurA[i] - tau*blurB[i];
+      xdog[i] = dog >= eps ? 1 : (1 + Math.tanh(phi*(dog-eps)/255));
+    }
+
+    // 3) Sobel on smoothed gray for Canny
+    const sm = boxBlurGray(g, w, h, 1);
+    const mag = new Float32Array(w*h);
+    const gxA = new Float32Array(w*h);
+    const gyA = new Float32Array(w*h);
+    for(let y=1;y<h-1;y++){
+      for(let x=1;x<w-1;x++){
+        const i=y*w+x;
+        const gx = -sm[i-w-1]-2*sm[i-1]-sm[i+w-1] + sm[i-w+1]+2*sm[i+1]+sm[i+w+1];
+        const gy = -sm[i-w-1]-2*sm[i-w]-sm[i-w+1] + sm[i+w-1]+2*sm[i+w]+sm[i+w+1];
+        gxA[i]=gx; gyA[i]=gy;
+        mag[i]=Math.sqrt(gx*gx+gy*gy);
+      }
+    }
+
+    // 4) Non-max suppression
+    const nms = new Float32Array(w*h);
+    for(let y=1;y<h-1;y++){
+      for(let x=1;x<w-1;x++){
+        const i=y*w+x;
+        const a = Math.atan2(gyA[i], gxA[i]) * 180 / Math.PI;
+        const aa = (a+180)%180;
+        let n1,n2;
+        if(aa<22.5 || aa>=157.5){ n1=mag[i-1]; n2=mag[i+1]; }
+        else if(aa<67.5){ n1=mag[i-w+1]; n2=mag[i+w-1]; }
+        else if(aa<112.5){ n1=mag[i-w]; n2=mag[i+w]; }
+        else { n1=mag[i-w-1]; n2=mag[i+w+1]; }
+        if(mag[i]>=n1 && mag[i]>=n2) nms[i]=mag[i];
+      }
+    }
+
+    let maxM=1;
+    for(let i=0;i<nms.length;i++) if(nms[i]>maxM) maxM=nms[i];
+    const tHigh = maxM * (0.10 + (100-detail)/100*0.16);
+    const tLow  = tHigh * 0.32;
+
+    const edges = new Uint8Array(w*h);
+    const stack = new Int32Array(w*h);
+    let top=0;
+    for(let i=0;i<nms.length;i++){
+      if(nms[i]>=tHigh){ edges[i]=2; stack[top++]=i; }
+    }
+    // Also seed from strong XDoG dark lines (xdog low = ink)
+    const xCut = 0.42 + (100-detail)/100*0.25;
+    for(let i=0;i<xdog.length;i++){
+      if(xdog[i] < xCut*0.55 && !edges[i]){ edges[i]=2; stack[top++]=i; }
+    }
+    while(top){
+      const p=stack[--top];
       const x=p%w, y=(p-x)/w;
-      const nbs=[p-1,p+1,p-w,p+w];
-      for(const n of nbs){
-        if(n<0||n>=w*h) continue;
-        const nx=n%w;
-        if(Math.abs(nx-x)+Math.abs(((n-nx)/w)-y)!==1) continue;
-        if(bin[n]&&!seen[n]){seen[n]=1;st[tp++]=n;}
+      for(let dy=-1;dy<=1;dy++){
+        for(let dx=-1;dx<=1;dx++){
+          if(!dx&&!dy) continue;
+          const xx=x+dx, yy=y+dy;
+          if(xx<0||yy<0||xx>=w||yy>=h) continue;
+          const n=yy*w+xx;
+          if(edges[n]) continue;
+          if(nms[n]>=tLow || xdog[n] < xCut){ edges[n]=2; stack[top++]=n; }
+        }
       }
     }
-    if(count<minSpeck) for(const p of cells) bin[p]=0;
-  }
 
+    // 5) Adaptive dark features (eyes, nostrils, hair) at higher detail
+    const local = boxBlurGray(g, w, h, 8);
+    const adaptC = 18 + (100-detail)*0.12;
+    for(let i=0;i<g.length;i++){
+      if(g[i] < local[i]-adaptC && g[i] < 90) edges[i]=2;
+    }
+    for(let i=0;i<edges.length;i++) edges[i] = edges[i] ? 1 : 0;
+
+    // 6) Close tiny gaps, then dilate to thickness
+    function dilate(src, rad){
+      if(rad<1) return src;
+      const out=new Uint8Array(w*h);
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          let on=0;
+          for(let dy=-rad; dy<=rad && !on; dy++){
+            const yy=y+dy; if(yy<0||yy>=h) continue;
+            for(let dx=-rad; dx<=rad; dx++){
+              const xx=x+dx;
+              if(xx>=0&&xx<w && src[yy*w+xx]){ on=1; break; }
+            }
+          }
+          out[y*w+x]=on;
+        }
+      }
+      return out;
+    }
+    function erode(src, rad){
+      if(rad<1) return src;
+      const out=new Uint8Array(w*h);
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          let on=1;
+          for(let dy=-rad; dy<=rad && on; dy++){
+            const yy=y+dy;
+            if(yy<0||yy>=h){ on=0; break; }
+            for(let dx=-rad; dx<=rad; dx++){
+              const xx=x+dx;
+              if(xx<0||xx>=w||!src[yy*w+xx]){ on=0; break; }
+            }
+          }
+          out[y*w+x]=on;
+        }
+      }
+      return out;
+    }
+    let bin = erode(dilate(edges, 1), 1); // close
+    bin = dilate(bin, Math.max(0, thick-1));
+
+    // 7) Remove speckles
+    const seen=new Uint8Array(w*h);
+    const st=new Int32Array(w*h);
+    const minSpeck = 10 + Math.round((100-detail)*0.15);
+    for(let i=0;i<w*h;i++){
+      if(!bin[i]||seen[i]) continue;
+      let tp=0,count=0;
+      st[tp++]=i; seen[i]=1;
+      const cells=[];
+      while(tp){
+        const p=st[--tp];
+        cells.push(p); count++;
+        const x=p%w, y=(p-x)/w;
+        const nbs=[p-1,p+1,p-w,p+w];
+        for(const n of nbs){
+          if(n<0||n>=w*h) continue;
+          const nx=n%w;
+          if(Math.abs(nx-x)+Math.abs(((n-nx)/w)-y)!==1) continue;
+          if(bin[n]&&!seen[n]){ seen[n]=1; st[tp++]=n; }
+        }
+      }
+      if(count<minSpeck) for(const p of cells) bin[p]=0;
+    }
+
+    work = {w,h,rgba,lines:bin};
+    compositeOutput();
+    document.getElementById('photoWorking').textContent = '';
+  }));
+}
+
+function compositeOutput(){
+  if(!work) return;
+  const {w,h,rgba,lines} = work;
+  outCanvas.width = w; outCanvas.height = h;
+  outCtx.imageSmoothingEnabled = false;
   const out = outCtx.createImageData(w,h);
-  for(let i=0,p=0;i<out.data.length;i+=4,p++){
-    const v = bin[p] ? 20 : 255;
-    out.data[i]=out.data[i+1]=out.data[i+2]=v;
-    out.data[i+3]=255;
+  const d = out.data;
+  const style = photoStyle;
+  for(let p=0,i=0;p<w*h;p++,i+=4){
+    if(lines[p]){
+      d[i]=d[i+1]=d[i+2]=0; d[i+3]=255;
+    } else if(style==='outline'){
+      d[i]=d[i+1]=d[i+2]=255; d[i+3]=255;
+    } else {
+      const c = stylizeColor(rgba[i], rgba[i+1], rgba[i+2], style);
+      d[i]=c[0]; d[i+1]=c[1]; d[i+2]=c[2]; d[i+3]=255;
+    }
   }
   outCtx.putImageData(out,0,0);
 }
 
 document.getElementById('btnDownloadPhoto').onclick = ()=>{
-  if(!sourceImg) return;
+  if(!work) return;
   const a=document.createElement('a');
-  a.download='coloring-page.png';
+  a.download = photoStyle==='outline' ? 'coloring-page.png' : 'coloring-page-'+photoStyle+'.png';
   a.href=outCanvas.toDataURL('image/png');
   a.click();
 };
 document.getElementById('btnPrintPhoto').onclick = ()=>{
-  if(!sourceImg) return;
+  if(!work) return;
   const area=document.getElementById('printArea');
   area.innerHTML='';
   const img=document.createElement('img');
@@ -514,170 +705,403 @@ const SAFE_SUGGESTIONS = [
 ];
 
 /* =========================================================
-   SVG PART LIBRARY + PRINTABLES + SCENE COMPOSER
+   SVG PART LIBRARY — detailed, child-friendly, with gentle fills
+   .paint fills become white in Outline only mode; ink stays black
 ========================================================= */
+const ST = 'stroke="#222" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
+function P(color){ return `class="paint" fill="${color}" ${ST}`; }
+function ink(){ return `fill="#222" ${ST}`; }
+function none(){ return `fill="none" ${ST}`; }
+
 const S = {
-  // helpers
-  sun(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"><circle cx="0" cy="0" r="28"/><path d="M0-48v-14M0 48v14M48 0h14M-48 0h-14M34-34l10-10M-34 34l-10 10M34 34l10 10M-34-34l-10-10"/></g>`},
-  cloud(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linejoin="round"><path d="M-40 10c0-18 14-30 32-28 6-14 24-20 38-12 16-6 34 4 34 22 0 18-16 30-40 30h-50c-16 0-28-12-14-12z"/></g>`},
-  star(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linejoin="round"><path d="M0-24 L7-6 L26-6 L10 6 L16 24 L0 12 L-16 24 L-10 6 L-26-6 L-7-6 Z"/></g>`},
-  heart(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linejoin="round"><path d="M0 18 C0 18 -28 -2 -28 -16 C-28 -28 -16 -32 -8 -24 C-4 -20 0 -14 0 -14 C0 -14 4 -20 8 -24 C16 -32 28 -28 28 -16 C28 -2 0 18 0 18 Z"/></g>`},
-  flower(){return `<g stroke="#111" stroke-width="3" fill="none"><circle cx="0" cy="0" r="8"/><circle cx="0" cy="-20" r="10"/><circle cx="0" cy="20" r="10"/><circle cx="-20" cy="0" r="10"/><circle cx="20" cy="0" r="10"/><circle cx="-14" cy="-14" r="9"/><circle cx="14" cy="-14" r="9"/><circle cx="-14" cy="14" r="9"/><circle cx="14" cy="14" r="9"/></g>`},
-  balloon(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"><ellipse cx="0" cy="-10" rx="22" ry="28"/><path d="M0 18 L0 70 M-6 18 Q0 26 6 18"/></g>`},
-  tree(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linejoin="round"><path d="M0 70 V20"/><path d="M-8 70 H8"/><path d="M0 20 L-36 50 H36 Z"/><path d="M0 0 L-30 32 H30 Z"/><path d="M0 -28 L-24 4 H24 Z"/></g>`},
-  hill(){return `<g stroke="#111" stroke-width="3" fill="none"><path d="M-120 40 Q-40 -30 40 40 Q90 0 140 40"/></g>`},
-  wave(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"><path d="M-120 20 Q-90 0 -60 20 T0 20 T60 20 T120 20"/></g>`},
-  // animals (cute, smiling)
-  cat(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="18" rx="42" ry="34"/>
-    <circle cx="0" cy="-28" r="28"/>
-    <path d="M-22 -48 L-14 -70 L-4 -50"/>
-    <path d="M22 -48 L14 -70 L4 -50"/>
-    <circle cx="-10" cy="-30" r="3" fill="#111"/><circle cx="10" cy="-30" r="3" fill="#111"/>
-    <path d="M-4 -20 Q0 -14 4 -20"/>
-    <path d="M0 -18 V-10"/><path d="M0 -12 L-10 -8M0 -12 L10 -8"/>
-    <path d="M-28 -22 Q-40 -18 -38 -8"/><path d="M28 -22 Q40 -18 38 -8"/>
-    <path d="M36 10 Q70 -10 66 30"/><path d="M-20 48 Q-10 62 10 52"/>
+  sun(){return `<g>
+    <circle ${P('#ffe566')} cx="0" cy="0" r="26"/>
+    <g ${none()}><path d="M0-42v-12M0 42v12M42 0h12M-42 0h-12M30-30l9-9M-30 30l-9 9M30 30l9 9M-30-30l-9-9"/></g>
+    <circle fill="#fff" stroke="none" cx="-7" cy="-6" r="6" opacity=".45"/>
   </g>`},
-  dog(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="22" rx="44" ry="32"/>
-    <circle cx="0" cy="-22" r="30"/>
-    <path d="M-28 -30 Q-48 -50 -40 -18 Q-34 -8 -22 -16 Z"/>
-    <path d="M28 -30 Q48 -50 40 -18 Q34 -8 22 -16 Z"/>
-    <circle cx="-10" cy="-24" r="3" fill="#111"/><circle cx="10" cy="-24" r="3" fill="#111"/>
-    <ellipse cx="0" cy="-10" rx="10" ry="8"/>
-    <path d="M-4 -4 Q0 2 4 -4"/>
-    <path d="M40 8 Q68 -20 62 18"/><path d="M-18 50 Q0 66 20 50"/>
+  cloud(){return `<g>
+    <path ${P('#ffffff')} d="M-42 12c0-16 12-28 30-26 6-14 24-20 38-10 16-8 36 2 36 20 0 16-14 28-38 28h-52c-16 0-26-8-14-12z"/>
   </g>`},
-  bunny(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="26" rx="36" ry="30"/>
-    <circle cx="0" cy="-10" r="26"/>
-    <ellipse cx="-14" cy="-62" rx="10" ry="28"/><ellipse cx="14" cy="-62" rx="10" ry="28"/>
-    <circle cx="-8" cy="-12" r="3" fill="#111"/><circle cx="8" cy="-12" r="3" fill="#111"/>
-    <path d="M-4 -2 Q0 4 4 -2"/><ellipse cx="0" cy="-4" rx="6" ry="4"/>
-    <path d="M28 10 Q50 0 44 28"/>
+  star(){return `<g>
+    <path ${P('#ffe566')} d="M0-22 L6-6 L24-6 L10 5 L15 22 L0 12 L-15 22 L-10 5 L-24-6 L-6-6 Z"/>
   </g>`},
-  bear(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="26" rx="46" ry="36"/>
-    <circle cx="0" cy="-20" r="32"/>
-    <circle cx="-28" cy="-42" r="12"/><circle cx="28" cy="-42" r="12"/>
-    <circle cx="-10" cy="-22" r="3" fill="#111"/><circle cx="10" cy="-22" r="3" fill="#111"/>
-    <ellipse cx="0" cy="-8" rx="12" ry="10"/>
-    <circle cx="-4" cy="-10" r="2" fill="#111"/><circle cx="4" cy="-10" r="2" fill="#111"/>
-    <path d="M-6 0 Q0 6 6 0"/>
+  heart(){return `<g>
+    <path ${P('#ff9bb3')} d="M0 18 C0 18 -26 -2 -26 -14 C-26 -26 -14 -30 -8 -22 C-4 -18 0 -12 0 -12 C0 -12 4 -18 8 -22 C14 -30 26 -26 26 -14 C26 -2 0 18 0 18 Z"/>
   </g>`},
-  dino(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M-50 40 Q-40 10 0 16 Q40 20 50 8 Q60 -10 40 -16 Q20 -24 8 -8 Q0 4 -20 8 Q-48 12 -50 40 Z"/>
-    <path d="M-50 40 Q-30 56 -10 44"/><path d="M10 40 Q20 58 34 44"/>
-    <path d="M50 8 Q78 0 86 24 Q70 20 60 28"/>
-    <circle cx="28" cy="-8" r="3" fill="#111"/>
-    <path d="M18 -4 Q24 2 30 -2"/>
-    <path d="M-10 -4 L-4 -22 L4 -6"/><path d="M6 0 L14 -20 L20 2"/><path d="M-24 8 L-18 -10 L-10 10"/>
+  flower(){return `<g>
+    <circle ${P('#ffb3c7')} cx="0" cy="-18" r="10"/>
+    <circle ${P('#ffb3c7')} cx="0" cy="18" r="10"/>
+    <circle ${P('#ffd6e8')} cx="-18" cy="0" r="10"/>
+    <circle ${P('#ffd6e8')} cx="18" cy="0" r="10"/>
+    <circle ${P('#c9b6ff')} cx="-13" cy="-13" r="9"/>
+    <circle ${P('#c9b6ff')} cx="13" cy="-13" r="9"/>
+    <circle ${P('#b8e0ff')} cx="-13" cy="13" r="9"/>
+    <circle ${P('#b8e0ff')} cx="13" cy="13" r="9"/>
+    <circle ${P('#ffe566')} cx="0" cy="0" r="8"/>
   </g>`},
-  unicorn(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="28" rx="44" ry="30"/>
-    <circle cx="10" cy="-18" r="28"/>
-    <path d="M4 -42 L16 -78 L26 -42"/>
-    <path d="M-8 -40 Q-28 -60 -20 -20"/>
-    <path d="M28 -30 Q50 -50 46 -18"/>
-    <circle cx="4" cy="-20" r="3" fill="#111"/><circle cx="20" cy="-20" r="3" fill="#111"/>
-    <path d="M8 -8 Q14 -2 20 -8"/>
-    <path d="M-40 10 Q-70 -10 -60 30"/><path d="M-16 54 Q0 70 18 54"/><path d="M22 54 Q36 70 48 52"/>
+  balloon(){return `<g>
+    <ellipse ${P('#ff9bb3')} cx="0" cy="-10" rx="20" ry="26"/>
+    <path ${none()} d="M0 16 L0 68"/>
+    <path ${P('#ff9bb3')} d="M-5 16 Q0 24 5 16 Z"/>
+    <ellipse fill="#fff" stroke="none" cx="-6" cy="-18" rx="5" ry="8" opacity=".45"/>
   </g>`},
-  fish(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="0" rx="46" ry="28"/>
-    <path d="M44 0 L72 -22 L66 0 L72 22 Z"/>
-    <path d="M-10 -26 Q0 -46 14 -28"/><path d="M-10 26 Q0 46 14 28"/>
-    <circle cx="-18" cy="-4" r="4" fill="#111"/><circle cx="-17" cy="-5" r="1.5" fill="#fff"/>
-    <path d="M-30 6 Q-22 14 -12 8"/>
+  balloonBlue(){return `<g>
+    <ellipse ${P('#7ec8ff')} cx="0" cy="-10" rx="20" ry="26"/>
+    <path ${none()} d="M0 16 L0 68"/>
+    <path ${P('#7ec8ff')} d="M-5 16 Q0 24 5 16 Z"/>
+    <ellipse fill="#fff" stroke="none" cx="-6" cy="-18" rx="5" ry="8" opacity=".45"/>
   </g>`},
-  bird(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="10" rx="34" ry="26"/>
-    <circle cx="24" cy="-10" r="18"/>
-    <path d="M38 -10 L58 -4 L38 0 Z"/>
-    <circle cx="28" cy="-14" r="3" fill="#111"/>
-    <path d="M-10 0 Q-40 -30 -20 16"/><path d="M-4 30 Q0 48 10 34"/><path d="M14 32 Q20 48 28 34"/>
+  balloonSun(){return `<g>
+    <ellipse ${P('#ffe566')} cx="0" cy="-10" rx="20" ry="26"/>
+    <path ${none()} d="M0 16 L0 68"/>
+    <path ${P('#ffe566')} d="M-5 16 Q0 24 5 16 Z"/>
   </g>`},
-  owl(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="16" rx="36" ry="40"/>
-    <circle cx="-14" cy="-8" r="14"/><circle cx="14" cy="-8" r="14"/>
-    <circle cx="-14" cy="-8" r="5" fill="#111"/><circle cx="14" cy="-8" r="5" fill="#111"/>
-    <path d="M-4 8 L0 16 L4 8 Z"/>
-    <path d="M-22 -30 L-12 -18"/><path d="M22 -30 L12 -18"/>
-    <path d="M-16 50 Q-8 62 0 52"/><path d="M0 52 Q8 62 16 50"/>
+  tree(){return `<g>
+    <rect ${P('#c48a4a')} x="-8" y="18" width="16" height="48" rx="3"/>
+    <path ${none()} d="M-4 36 L4 36 M-3 50 L3 50"/>
+    <circle ${P('#7bc96f')} cx="0" cy="-6" r="28"/>
+    <circle ${P('#8ed98a')} cx="-16" cy="8" r="18"/>
+    <circle ${P('#8ed98a')} cx="16" cy="10" r="17"/>
+    <circle ${P('#67b85e')} cx="6" cy="-22" r="14"/>
   </g>`},
-  duck(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="0" cy="20" rx="40" ry="26"/>
-    <circle cx="28" cy="-6" r="18"/>
-    <path d="M42 -6 L68 0 L42 6 Q48 0 42 -6"/>
-    <circle cx="32" cy="-10" r="3" fill="#111"/>
-    <path d="M-20 40 Q-10 56 8 44"/><path d="M10 42 Q20 56 30 42"/>
+  hill(){return `<g>
+    <path ${P('#b7e4a8')} d="M-160 50 Q-40 -40 40 40 Q100 -10 160 50 L160 70 L-160 70 Z"/>
   </g>`},
-  kid(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="0" cy="-36" r="22"/>
-    <circle cx="-8" cy="-38" r="2.5" fill="#111"/><circle cx="8" cy="-38" r="2.5" fill="#111"/>
-    <path d="M-6 -28 Q0 -22 6 -28"/>
-    <path d="M0 -14 V20"/><path d="M0 0 L-28 -8"/><path d="M0 0 L28 -8"/>
-    <path d="M0 20 L-18 56"/><path d="M0 20 L18 56"/>
+  grass(){return `<g ${none()}>
+    <path d="M-18 16 C-12 0 -6 0 0 16 M-8 16 C-2 -4 6 0 8 16 M8 16 C14 0 20 2 22 16"/>
   </g>`},
-  // vehicles / objects
-  firetruck(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M-70 10 H30 V-20 H-10 L-20 -40 H-70 Z"/>
-    <path d="M30 10 H70 V-10 H30 Z"/>
-    <rect x="-60" y="-16" width="18" height="14" rx="2"/><rect x="-36" y="-16" width="18" height="14" rx="2"/>
-    <circle cx="-40" cy="22" r="14"/><circle cx="-40" cy="22" r="6"/>
-    <circle cx="48" cy="22" r="14"/><circle cx="48" cy="22" r="6"/>
-    <path d="M-16 -40 V-58"/><path d="M-24 -58 H8"/><path d="M60 -10 V-34 L72 -28"/>
-    <path d="M-70 10 V22"/><path d="M70 10 V22"/>
+  wave(){return `<g>
+    <path class="paint" fill="#8fd3e8" stroke="none" d="M-200 8 Q-150 -16 -100 8 T0 8 T100 8 T200 8 L200 90 L-200 90 Z"/>
+    <path class="paint" fill="#c5eef8" stroke="none" d="M-200 28 Q-150 12 -100 28 T0 28 T100 28 T200 28 L200 90 L-200 90 Z"/>
+    <path fill="none" stroke="#222" stroke-width="2.6" stroke-linecap="round" d="M-200 8 Q-150 -16 -100 8 T0 8 T100 8 T200 8"/>
+    <path fill="none" stroke="#222" stroke-width="2.2" stroke-linecap="round" d="M-200 28 Q-150 12 -100 28 T0 28 T100 28 T200 28"/>
   </g>`},
-  car(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M-60 10 L-40 -10 L-10 -22 H30 L55 -8 L70 10 Z"/>
-    <path d="M-60 10 H70 V22 H-60 Z"/>
-    <path d="M-28 -10 H8 V-20 H-16 Z"/><path d="M14 -10 H42 L50 -4 H14 Z"/>
-    <circle cx="-34" cy="26" r="12"/><circle cx="-34" cy="26" r="5"/>
-    <circle cx="40" cy="26" r="12"/><circle cx="40" cy="26" r="5"/>
+  moon(){return `<g>
+    <path ${P('#fff1b8')} d="M12 -22 A26 26 0 1 0 12 22 A16 16 0 1 1 12 -22"/>
   </g>`},
-  bus(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="-70" y="-28" width="140" height="50" rx="8"/>
-    <path d="M-70 22 H70"/>
-    <rect x="-58" y="-18" width="18" height="16" rx="2"/><rect x="-32" y="-18" width="18" height="16" rx="2"/>
-    <rect x="-6" y="-18" width="18" height="16" rx="2"/><rect x="20" y="-18" width="18" height="16" rx="2"/>
-    <rect x="46" y="-18" width="14" height="16" rx="2"/>
-    <circle cx="-40" cy="30" r="12"/><circle cx="40" cy="30" r="12"/>
+  butterfly(){return `<g>
+    <ellipse ${P('#ffb3c7')} cx="-14" cy="0" rx="14" ry="20"/>
+    <ellipse ${P('#c9b6ff')} cx="14" cy="0" rx="14" ry="20"/>
+    <ellipse ${P('#ffe566')} cx="-12" cy="-2" rx="6" ry="8"/>
+    <ellipse ${P('#ffe566')} cx="12" cy="-2" rx="6" ry="8"/>
+    <path ${none()} d="M0 -12 V18"/>
+    <circle ${ink()} cx="0" cy="-14" r="2.4"/>
+    <path ${none()} d="M-3 -16 L-8 -24 M3 -16 L8 -24"/>
   </g>`},
-  train(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="-20" y="-36" width="70" height="50" rx="6"/>
-    <rect x="-70" y="-10" width="50" height="30" rx="4"/>
-    <rect x="-6" y="-26" width="20" height="16" rx="2"/><rect x="22" y="-26" width="20" height="16" rx="2"/>
-    <circle cx="-50" cy="28" r="10"/><circle cx="-20" cy="28" r="10"/><circle cx="20" cy="28" r="10"/><circle cx="48" cy="28" r="10"/>
-    <path d="M50 -36 V-54"/><circle cx="50" cy="-58" r="6"/>
-    <path d="M-70 20 H70"/>
+
+  cat(){return `<g>
+    <ellipse ${P('#ffc89a')} cx="0" cy="22" rx="40" ry="30"/>
+    <path ${P('#e8a070')} d="M-16 8 Q-10 22 -8 34 M0 10 Q4 24 6 36 M16 8 Q20 22 18 34" fill="none" ${ST}/>
+    <circle ${P('#ffc89a')} cx="0" cy="-26" r="26"/>
+    <path ${P('#ffc89a')} d="M-22 -42 L-16 -70 L-2 -46 Z"/>
+    <path ${P('#ffc89a')} d="M22 -42 L16 -70 L2 -46 Z"/>
+    <path ${P('#ffb3c7')} d="M-18 -48 L-14 -62 L-8 -48 Z"/>
+    <path ${P('#ffb3c7')} d="M18 -48 L14 -62 L8 -48 Z"/>
+    <circle ${P('#fff')} cx="-10" cy="-28" r="6"/>
+    <circle ${P('#fff')} cx="10" cy="-28" r="6"/>
+    <circle ${ink()} cx="-9" cy="-27" r="3"/>
+    <circle ${ink()} cx="11" cy="-27" r="3"/>
+    <circle fill="#fff" stroke="none" cx="-11" cy="-29" r="1.4"/>
+    <circle fill="#fff" stroke="none" cx="9" cy="-29" r="1.4"/>
+    <path ${P('#ff9bb3')} d="M-4 -16 L0 -11 L4 -16 Z"/>
+    <path ${none()} d="M0 -11 V-7 M0 -7 L-8 -4 M0 -7 L8 -4"/>
+    <path ${none()} d="M-6 -12 Q0 -6 6 -12"/>
+    <path ${none()} d="M-26 -22 Q-42 -18 -44 -8 M-26 -16 Q-40 -12 -42 -4 M26 -22 Q42 -18 44 -8 M26 -16 Q40 -12 42 -4"/>
+    <path ${P('#ffc89a')} d="M34 8 Q68 -16 64 22 Q52 8 38 16 Z"/>
+    <ellipse ${P('#ffc89a')} cx="-22" cy="48" rx="9" ry="7"/>
+    <ellipse ${P('#ffc89a')} cx="16" cy="50" rx="9" ry="7"/>
+    <circle ${P('#ffb3c7')} cx="-12" cy="-18" r="4" stroke="none"/>
+    <circle ${P('#ffb3c7')} cx="12" cy="-18" r="4" stroke="none"/>
   </g>`},
-  rocket(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M0 -70 C28 -40 28 30 0 55 C-28 30 -28 -40 0 -70 Z"/>
-    <circle cx="0" cy="-10" r="12"/>
-    <path d="M-18 20 L-40 50 L-10 40"/><path d="M18 20 L40 50 L10 40"/>
-    <path d="M-10 55 Q0 78 10 55"/>
+
+  dog(){return `<g>
+    <ellipse ${P('#efd0a8')} cx="0" cy="24" rx="42" ry="30"/>
+    <circle ${P('#efd0a8')} cx="0" cy="-20" r="28"/>
+    <path ${P('#d4a574')} d="M-26 -26 Q-48 -52 -42 -16 Q-38 -6 -22 -14 Z"/>
+    <path ${P('#d4a574')} d="M26 -26 Q48 -52 42 -16 Q38 -6 22 -14 Z"/>
+    <circle ${P('#fff')} cx="-10" cy="-22" r="6"/>
+    <circle ${P('#fff')} cx="10" cy="-22" r="6"/>
+    <circle ${ink()} cx="-9" cy="-21" r="3"/>
+    <circle ${ink()} cx="11" cy="-21" r="3"/>
+    <circle fill="#fff" stroke="none" cx="-11" cy="-23" r="1.4"/>
+    <circle fill="#fff" stroke="none" cx="9" cy="-23" r="1.4"/>
+    <ellipse ${P('#f3d7b5')} cx="0" cy="-8" rx="10" ry="8"/>
+    <ellipse ${ink()} cx="0" cy="-9" rx="5" ry="3.5"/>
+    <path ${none()} d="M-5 -2 Q0 5 5 -2"/>
+    <path ${P('#ff9bb3')} d="M2 0 Q6 10 0 10 Q-2 4 2 0"/>
+    <path ${P('#7ec8ff')} d="M-18 8 H18 V16 H-18 Z"/>
+    <circle ${P('#ffe566')} cx="0" cy="16" r="5"/>
+    <path ${P('#efd0a8')} d="M38 6 Q70 -22 64 16 Q50 4 40 14 Z"/>
+    <ellipse ${P('#efd0a8')} cx="-20" cy="50" rx="10" ry="7"/>
+    <ellipse ${P('#efd0a8')} cx="18" cy="52" rx="10" ry="7"/>
+    <circle ${P('#e8b896')} cx="16" cy="-8" r="7"/>
   </g>`},
-  boat(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M-70 20 L-50 50 H50 L70 20 Z"/>
-    <path d="M0 20 V-50"/><path d="M0 -50 L40 -10 H0"/>
-    <path d="M-20 20 V-20"/><path d="M-20 -20 L-45 5 H-20"/>
+
+  bunny(){return `<g>
+    <ellipse ${P('#ffe9f2')} cx="0" cy="28" rx="34" ry="28"/>
+    <circle ${P('#ffe9f2')} cx="0" cy="-8" r="24"/>
+    <ellipse ${P('#ffe9f2')} cx="-14" cy="-58" rx="9" ry="28"/>
+    <ellipse ${P('#ffe9f2')} cx="14" cy="-58" rx="9" ry="28"/>
+    <ellipse ${P('#ffc0d8')} cx="-14" cy="-56" rx="4.5" ry="18"/>
+    <ellipse ${P('#ffc0d8')} cx="14" cy="-56" rx="4.5" ry="18"/>
+    <circle ${P('#fff')} cx="-8" cy="-10" r="5.5"/>
+    <circle ${P('#fff')} cx="8" cy="-10" r="5.5"/>
+    <circle ${ink()} cx="-7" cy="-9" r="2.8"/>
+    <circle ${ink()} cx="9" cy="-9" r="2.8"/>
+    <circle fill="#fff" stroke="none" cx="-9" cy="-11" r="1.2"/>
+    <ellipse ${P('#ff9bb3')} cx="0" cy="-2" rx="5" ry="3.5"/>
+    <path ${none()} d="M-5 4 Q0 10 5 4"/>
+    <circle ${P('#fff')} cx="22" cy="36" r="10"/>
+    <path ${P('#ffe9f2')} d="M28 12 Q48 4 42 28"/>
+    <circle ${P('#ffd0e0')} cx="-10" cy="0" r="4" stroke="none"/>
+    <circle ${P('#ffd0e0')} cx="10" cy="0" r="4" stroke="none"/>
   </g>`},
-  bike(){return `<g stroke="#111" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="-40" cy="20" r="22"/><circle cx="40" cy="20" r="22"/>
-    <path d="M-40 20 L-10 -10 H20 L40 20"/><path d="M-10 -10 L10 20"/><path d="M20 -10 V-28"/><path d="M8 -28 H32"/>
-    <path d="M10 20 H-10"/><circle cx="20" cy="-10" r="4"/>
+
+  bear(){return `<g>
+    <ellipse ${P('#e0b081')} cx="0" cy="28" rx="44" ry="34"/>
+    <circle ${P('#e0b081')} cx="0" cy="-18" r="30"/>
+    <circle ${P('#e0b081')} cx="-26" cy="-42" r="12"/>
+    <circle ${P('#e0b081')} cx="26" cy="-42" r="12"/>
+    <circle ${P('#f3d7b5')} cx="-26" cy="-42" r="6"/>
+    <circle ${P('#f3d7b5')} cx="26" cy="-42" r="6"/>
+    <ellipse ${P('#f3d7b5')} cx="0" cy="30" rx="24" ry="18"/>
+    <circle ${P('#fff')} cx="-10" cy="-20" r="6"/>
+    <circle ${P('#fff')} cx="10" cy="-20" r="6"/>
+    <circle ${ink()} cx="-9" cy="-19" r="3"/>
+    <circle ${ink()} cx="11" cy="-19" r="3"/>
+    <circle fill="#fff" stroke="none" cx="-11" cy="-21" r="1.3"/>
+    <ellipse ${P('#f3d7b5')} cx="0" cy="-6" rx="12" ry="10"/>
+    <ellipse ${ink()} cx="-3.5" cy="-8" rx="2.2" ry="2.6"/>
+    <ellipse ${ink()} cx="3.5" cy="-8" rx="2.2" ry="2.6"/>
+    <path ${none()} d="M-6 2 Q0 8 6 2"/>
+    <ellipse ${P('#e0b081')} cx="-28" cy="52" rx="10" ry="8"/>
+    <ellipse ${P('#e0b081')} cx="28" cy="52" rx="10" ry="8"/>
+    <circle ${P('#f0c4b0')} cx="-16" cy="-8" r="5" stroke="none"/>
+    <circle ${P('#f0c4b0')} cx="16" cy="-8" r="5" stroke="none"/>
   </g>`},
-  // backgrounds bits as groups placed later
+
+  dino(){return `<g>
+    <path ${P('#b7e4a8')} d="M-48 36 Q-40 6 4 12 Q44 16 52 4 Q62 -14 40 -20 Q18 -28 6 -10 Q-2 2 -22 6 Q-50 10 -48 36 Z"/>
+    <path ${P('#e8f8d8')} d="M-30 32 Q-20 14 8 16 Q28 18 36 12 Q30 28 -8 34 Z"/>
+    <circle ${P('#b7e4a8')} cx="36" cy="-8" r="16"/>
+    <circle ${P('#fff')} cx="32" cy="-12" r="5.5"/>
+    <circle ${ink()} cx="33" cy="-11" r="2.8"/>
+    <circle fill="#fff" stroke="none" cx="31" cy="-13" r="1.2"/>
+    <path ${none()} d="M26 -4 Q32 2 40 -2"/>
+    <path ${P('#8ed98a')} d="M-6 -2 L0 -22 L8 -2"/>
+    <path ${P('#8ed98a')} d="M10 2 L16 -18 L22 4"/>
+    <path ${P('#8ed98a')} d="M-22 8 L-16 -10 L-8 10"/>
+    <path ${P('#b7e4a8')} d="M-16 44 Q-8 62 6 48"/>
+    <path ${P('#b7e4a8')} d="M14 42 Q24 62 36 46"/>
+    <path ${P('#b7e4a8')} d="M52 6 Q80 -2 86 22 Q70 16 60 26"/>
+    <circle ${P('#ffb3c7')} cx="28" cy="-2" r="3.5" stroke="none"/>
+  </g>`},
+
+  unicorn(){return `<g>
+    <ellipse ${P('#fff6fb')} cx="0" cy="30" rx="42" ry="28"/>
+    <circle ${P('#fff6fb')} cx="10" cy="-16" r="26"/>
+    <path ${P('#ffe566')} d="M8 -40 L18 -78 L26 -40 Z"/>
+    <path ${none()} d="M12 -48 L22 -48 M14 -58 L20 -58 M16 -68 L20 -68"/>
+    <path ${P('#d4c4ff')} d="M-6 -38 Q-30 -62 -18 -16 Q-8 -28 -2 -24 Z"/>
+    <path ${P('#ffb3c7')} d="M28 -28 Q52 -50 48 -14 Q36 -24 30 -20 Z"/>
+    <path ${P('#b8e0ff')} d="M-36 8 Q-68 -14 -56 28 Q-42 10 -34 16 Z"/>
+    <circle ${P('#fff')} cx="4" cy="-18" r="5.5"/>
+    <circle ${P('#fff')} cx="18" cy="-18" r="5.5"/>
+    <circle ${ink()} cx="5" cy="-17" r="2.6"/>
+    <circle ${ink()} cx="19" cy="-17" r="2.6"/>
+    <circle fill="#fff" stroke="none" cx="3" cy="-19" r="1.2"/>
+    <path ${none()} d="M8 -6 Q14 0 20 -6"/>
+    <path ${P('#fff6fb')} d="M-14 54 Q0 72 16 54"/>
+    <path ${P('#fff6fb')} d="M22 54 Q36 72 48 52"/>
+    <circle ${P('#ffd0e0')} cx="6" cy="-8" r="3.5" stroke="none"/>
+    <circle ${P('#ffd0e0')} cx="20" cy="-8" r="3.5" stroke="none"/>
+  </g>`},
+
+  fish(){return `<g>
+    <ellipse ${P('#8fd3e8')} cx="0" cy="0" rx="44" ry="26"/>
+    <path ${P('#f8b4c8')} d="M40 0 L70 -20 L64 0 L70 20 Z"/>
+    <path ${P('#f8b4c8')} d="M-8 -24 Q2 -46 16 -26"/>
+    <path ${P('#f8b4c8')} d="M-8 24 Q2 46 16 26"/>
+    <path ${none()} d="M-6 -6 Q2 -2 10 -6 M-6 6 Q2 10 10 6 M-4 0 H14"/>
+    <circle ${P('#fff')} cx="-18" cy="-4" r="7"/>
+    <circle ${ink()} cx="-16" cy="-3" r="3.5"/>
+    <circle fill="#fff" stroke="none" cx="-18" cy="-5" r="1.5"/>
+    <path ${none()} d="M-30 8 Q-20 16 -10 8"/>
+    <circle ${P('#c5eef8')} cx="-4" cy="8" r="4" stroke="none"/>
+  </g>`},
+
+  bird(){return `<g>
+    <ellipse ${P('#ffd36e')} cx="0" cy="12" rx="32" ry="24"/>
+    <circle ${P('#ffd36e')} cx="24" cy="-8" r="16"/>
+    <path ${P('#ffb347')} d="M38 -8 L60 -2 L38 4 Z"/>
+    <path ${P('#f0b429')} d="M-8 2 Q-40 -28 -16 16 Z"/>
+    <circle ${P('#fff')} cx="26" cy="-12" r="5"/>
+    <circle ${ink()} cx="27" cy="-11" r="2.5"/>
+    <circle fill="#fff" stroke="none" cx="25" cy="-13" r="1.1"/>
+    <path ${P('#ffd36e')} d="M-2 32 Q4 50 14 34"/>
+    <path ${P('#ffd36e')} d="M16 34 Q24 50 30 34"/>
+    <path ${none()} d="M16 -4 Q22 2 28 -2"/>
+  </g>`},
+
+  owl(){return `<g>
+    <ellipse ${P('#e8c792')} cx="0" cy="16" rx="34" ry="38"/>
+    <ellipse ${P('#f3e0c0')} cx="0" cy="24" rx="20" ry="22"/>
+    <circle ${P('#fff')} cx="-14" cy="-8" r="13"/>
+    <circle ${P('#fff')} cx="14" cy="-8" r="13"/>
+    <circle ${ink()} cx="-14" cy="-8" r="5"/>
+    <circle ${ink()} cx="14" cy="-8" r="5"/>
+    <circle fill="#fff" stroke="none" cx="-16" cy="-10" r="2"/>
+    <circle fill="#fff" stroke="none" cx="12" cy="-10" r="2"/>
+    <path ${P('#ffb347')} d="M-5 8 L0 18 L5 8 Z"/>
+    <path ${P('#e8c792')} d="M-20 -28 L-10 -16"/>
+    <path ${P('#e8c792')} d="M20 -28 L10 -16"/>
+    <path ${none()} d="M-14 48 Q-6 60 0 50 M0 50 Q6 60 14 48"/>
+    <path ${none()} d="M-10 20 H10 M-8 28 H8 M-6 36 H6"/>
+  </g>`},
+
+  duck(){return `<g>
+    <ellipse ${P('#ffe566')} cx="0" cy="20" rx="38" ry="24"/>
+    <circle ${P('#ffe566')} cx="28" cy="-4" r="16"/>
+    <path ${P('#ffb347')} d="M42 -4 L68 2 Q70 8 42 8 Z"/>
+    <path ${none()} d="M42 2 H62"/>
+    <circle ${P('#fff')} cx="30" cy="-8" r="5"/>
+    <circle ${ink()} cx="31" cy="-7" r="2.5"/>
+    <circle fill="#fff" stroke="none" cx="29" cy="-9" r="1.2"/>
+    <path ${P('#ffd36e')} d="M-16 8 Q-28 -4 -8 16"/>
+    <path ${P('#ffb347')} d="M-16 40 Q-8 56 8 44"/>
+    <path ${P('#ffb347')} d="M12 42 Q22 56 30 42"/>
+    <path ${none()} d="M-8 44 L-4 48 M20 46 L24 50"/>
+    <path ${none()} d="M22 0 Q28 4 34 0"/>
+    <path ${P('#ffe566')} d="M-32 16 Q-44 8 -36 24"/>
+    <circle ${P('#ffd0a0')} cx="22" cy="0" r="3.5" stroke="none"/>
+  </g>`},
+
+  kid(){return `<g>
+    <circle ${P('#ffd7b5')} cx="0" cy="-34" r="20"/>
+    <path ${P('#f4d06a')} d="M-18 -42 Q0 -62 18 -42 Q18 -34 12 -30 Q0 -36 -12 -30 Q-18 -34 -18 -42 Z"/>
+    <circle ${P('#fff')} cx="-7" cy="-36" r="4"/>
+    <circle ${P('#fff')} cx="7" cy="-36" r="4"/>
+    <circle ${ink()} cx="-6" cy="-35" r="2"/>
+    <circle ${ink()} cx="8" cy="-35" r="2"/>
+    <path ${none()} d="M-6 -26 Q0 -20 6 -26"/>
+    <circle ${P('#ffb3c7')} cx="-12" cy="-28" r="3" stroke="none"/>
+    <circle ${P('#ffb3c7')} cx="12" cy="-28" r="3" stroke="none"/>
+    <path ${P('#7ec8ff')} d="M-16 -12 H16 L20 22 H-20 Z"/>
+    <path ${none()} d="M0 -12 V22"/>
+    <path ${none()} d="M-16 0 L-32 -8 M16 0 L32 -8"/>
+    <path ${P('#8fb8e8')} d="M-10 22 L-16 52 L-6 52 L-2 22"/>
+    <path ${P('#8fb8e8')} d="M10 22 L16 52 L6 52 L2 22"/>
+    <path ${P('#ffd7b5')} d="M-16 -12 L-32 -8 L-28 0 L-16 -4"/>
+    <path ${P('#ffd7b5')} d="M16 -12 L32 -8 L28 0 L16 -4"/>
+  </g>`},
+
+  firetruck(){return `<g>
+    <path ${P('#ff6b6b')} d="M-72 12 H28 V-18 H-12 L-22 -42 H-72 Z"/>
+    <path ${P('#ff6b6b')} d="M28 12 H72 V-8 H28 Z"/>
+    <rect ${P('#c8eeff')} x="-62" y="-14" width="18" height="14" rx="2"/>
+    <rect ${P('#c8eeff')} x="-38" y="-14" width="18" height="14" rx="2"/>
+    <path ${none()} d="M-53 -14 V0 M-29 -14 V0 M-62 -7 H-20"/>
+    <rect ${P('#c8eeff')} x="36" y="-2" width="22" height="10" rx="2"/>
+    <circle ${P('#333')} cx="-42" cy="24" r="13"/>
+    <circle ${P('#ddd')} cx="-42" cy="24" r="6"/>
+    <circle ${P('#333')} cx="50" cy="24" r="13"/>
+    <circle ${P('#ddd')} cx="50" cy="24" r="6"/>
+    <path ${P('#d0d0d0')} d="M-18 -42 V-58 H8 V-54 H-14 V-42"/>
+    <path ${P('#d0d0d0')} d="M62 -8 V-34 L76 -26 L62 -20"/>
+    <rect ${P('#fff6c8')} x="64" y="-2" width="8" height="8" rx="1"/>
+    <rect ${P('#fff6c8')} x="-80" y="0" width="8" height="8" rx="1"/>
+    <path ${P('#ff9bb3')} d="M-4 -8 l0 -6 l3 3 l3 -3 l0 6 Z"/>
+    <path ${none()} d="M-72 12 V24 M72 12 V24"/>
+  </g>`},
+
+  car(){return `<g>
+    <path ${P('#7ec8ff')} d="M-58 12 L-40 -8 L-8 -22 H30 L54 -6 L68 12 Z"/>
+    <path ${P('#7ec8ff')} d="M-58 12 H68 V24 H-58 Z"/>
+    <path ${P('#c8eeff')} d="M-26 -8 H8 V-18 H-14 Z"/>
+    <path ${P('#c8eeff')} d="M14 -8 H42 L50 -2 H14 Z"/>
+    <circle ${P('#333')} cx="-32" cy="28" r="12"/>
+    <circle ${P('#ddd')} cx="-32" cy="28" r="5.5"/>
+    <circle ${P('#333')} cx="40" cy="28" r="12"/>
+    <circle ${P('#ddd')} cx="40" cy="28" r="5.5"/>
+    <rect ${P('#fff6c8')} x="56" y="4" width="10" height="8" rx="1"/>
+    <rect ${P('#ffb3c7')} x="-58" y="4" width="8" height="8" rx="1"/>
+  </g>`},
+
+  bus(){return `<g>
+    <rect ${P('#ffd34e')} x="-72" y="-26" width="144" height="50" rx="8"/>
+    <path ${none()} d="M-72 20 H72"/>
+    <rect ${P('#c8eeff')} x="-58" y="-16" width="18" height="16" rx="2"/>
+    <rect ${P('#c8eeff')} x="-32" y="-16" width="18" height="16" rx="2"/>
+    <rect ${P('#c8eeff')} x="-6" y="-16" width="18" height="16" rx="2"/>
+    <rect ${P('#c8eeff')} x="20" y="-16" width="18" height="16" rx="2"/>
+    <rect ${P('#c8eeff')} x="46" y="-16" width="16" height="16" rx="2"/>
+    <circle ${P('#333')} cx="-40" cy="32" r="12"/>
+    <circle ${P('#ddd')} cx="-40" cy="32" r="5.5"/>
+    <circle ${P('#333')} cx="42" cy="32" r="12"/>
+    <circle ${P('#ddd')} cx="42" cy="32" r="5.5"/>
+    <rect ${P('#fff6c8')} x="62" y="2" width="10" height="10" rx="1"/>
+  </g>`},
+
+  train(){return `<g>
+    <rect ${P('#ff8a5b')} x="-18" y="-34" width="70" height="50" rx="6"/>
+    <rect ${P('#7ec8ff')} x="-70" y="-8" width="50" height="28" rx="4"/>
+    <rect ${P('#c8eeff')} x="-6" y="-24" width="20" height="16" rx="2"/>
+    <rect ${P('#c8eeff')} x="22" y="-24" width="20" height="16" rx="2"/>
+    <circle ${P('#333')} cx="-50" cy="30" r="10"/>
+    <circle ${P('#ddd')} cx="-50" cy="30" r="4.5"/>
+    <circle ${P('#333')} cx="-20" cy="30" r="10"/>
+    <circle ${P('#ddd')} cx="-20" cy="30" r="4.5"/>
+    <circle ${P('#333')} cx="20" cy="30" r="10"/>
+    <circle ${P('#ddd')} cx="20" cy="30" r="4.5"/>
+    <circle ${P('#333')} cx="48" cy="30" r="10"/>
+    <circle ${P('#ddd')} cx="48" cy="30" r="4.5"/>
+    <path ${none()} d="M50 -34 V-52"/>
+    <circle ${P('#ff6b6b')} cx="50" cy="-56" r="6"/>
+    <path ${none()} d="M-70 20 H70"/>
+    <rect ${P('#fff6c8')} x="42" y="-8" width="10" height="8" rx="1"/>
+  </g>`},
+
+  rocket(){return `<g>
+    <path ${P('#f4f7ff')} d="M0 -70 C26 -40 26 28 0 54 C-26 28 -26 -40 0 -70 Z"/>
+    <circle ${P('#c8eeff')} cx="0" cy="-8" r="12"/>
+    <circle ${P('#e8f6ff')} cx="0" cy="-8" r="7"/>
+    <path ${P('#ff8a5b')} d="M-16 18 L-40 50 L-8 38 Z"/>
+    <path ${P('#ff8a5b')} d="M16 18 L40 50 L8 38 Z"/>
+    <path ${P('#ffe566')} d="M-8 54 Q0 78 8 54 Z"/>
+    <path ${P('#7ec8ff')} d="M-8 -40 L8 -40 L6 -24 L-6 -24 Z"/>
+  </g>`},
+
+  boat(){return `<g>
+    <path ${P('#ff8a5b')} d="M-72 18 L-50 52 H50 L72 18 Z"/>
+    <path ${P('#ffd6c8')} d="M-60 22 H60 L52 40 H-52 Z"/>
+    <path ${none()} d="M-40 30 H40 M-28 38 H28"/>
+    <path ${none()} d="M0 18 V-52"/>
+    <path ${P('#fff')} d="M0 -52 L42 -8 H0 Z"/>
+    <path ${P('#7ec8ff')} d="M8 -36 L28 -14 H8 Z"/>
+    <path ${none()} d="M-18 18 V-16"/>
+    <path ${P('#ffe566')} d="M-18 -16 L-44 8 H-18 Z"/>
+    <circle ${P('#ff9bb3')} cx="36" cy="12" r="8"/>
+    <circle ${P('#fff')} cx="36" cy="12" r="4"/>
+  </g>`},
+
+  bike(){return `<g>
+    <circle ${P('#fff')} cx="-40" cy="22" r="22"/>
+    <circle ${none()} cx="-40" cy="22" r="8"/>
+    <circle ${P('#fff')} cx="40" cy="22" r="22"/>
+    <circle ${none()} cx="40" cy="22" r="8"/>
+    <path ${none()} d="M-40 22 L-8 -8 H22 L40 22 M-8 -8 L12 22 M22 -8 V-28 M10 -28 H34"/>
+    <path ${P('#7ec8ff')} d="M4 -30 H36 L34 -24 H6 Z"/>
+    <circle ${P('#ff8a5b')} cx="22" cy="-8" r="4"/>
+    <path ${none()} d="M12 22 H-8"/>
+  </g>`}
 };
 
-function svgWrap(inner, w=800, h=600, title=''){
+function svgWrap(inner, w, h, title){
   if(typeof w === 'string'){ title = w; w = 800; h = 600; }
   if(typeof h === 'string'){ title = h; h = 600; }
   const safeTitle = String(title||'Coloring page').replace(/"/g,'');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${safeTitle}">
-  <rect width="100%" height="100%" fill="#fff"/>
+  <rect class="paint" fill="#fffdf8" width="100%" height="100%" stroke="none"/>
   ${inner}
 </svg>`;
 }
@@ -685,45 +1109,74 @@ function place(part, x, y, scale=1, rot=0){
   return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${scale})">${part}</g>`;
 }
 
-/* ---- Printable gallery pages (cute line art) ---- */
+function skyBits(){
+  return place(S.sun(), 670, 90, 0.9) + place(S.cloud(), 160, 100, 0.75) + place(S.cloud(), 300, 70, 0.45);
+}
+function grassBits(){
+  return place(S.hill(), 400, 500, 1.15) +
+    place(S.grass(), 120, 520, 1.2) + place(S.grass(), 260, 540, 1) +
+    place(S.grass(), 560, 530, 1.1) + place(S.grass(), 700, 515, 1.2);
+}
+function waterBand(y){
+  y = (y==null) ? 430 : y;
+  return `<rect class="paint" fill="#bfeaf5" stroke="none" x="0" y="${y+24}" width="800" height="${600-y}"/>` +
+    place(S.wave(), 400, y, 2.55) + place(S.wave(), 400, y+34, 2.55);
+}
+
 const PRINTABLES = {
   Cats: [
-    {id:'cat-sit', title:'Happy Cat', draw:()=>svgWrap(place(S.sun(),650,90,.8)+place(S.cloud(),160,100,.7)+place(S.cat(),400,320,2.2)+place(S.heart(),180,260,.7)+place(S.heart(),620,280,.55),'Happy Cat')},
-    {id:'cat-yarn', title:'Cat & Yarn', draw:()=>svgWrap(place(S.cat(),300,300,2)+`<g transform="translate(520 380) scale(1.4)" stroke="#111" stroke-width="3" fill="none"><circle cx="0" cy="0" r="28"/><path d="M-18 -10 Q0 -24 18 -8M-20 6 Q0 20 20 4M-10 -22 Q-28 0 -8 22M12 -20 Q28 0 10 22"/><path d="M26 10 Q70 40 90 20"/></g>`+place(S.flower(),120,480,.8)+place(S.flower(),680,500,.7),'Cat & Yarn')},
-    {id:'cat-window', title:'Cat by Window', draw:()=>svgWrap(`<g stroke="#111" stroke-width="3" fill="none"><rect x="80" y="60" width="300" height="360" rx="8"/><path d="M230 60 V420"/><path d="M80 240 H380"/></g>`+place(S.sun(),220,160,.55)+place(S.cloud(),280,200,.4)+place(S.cat(),560,340,1.8)+place(S.flower(),120,500,.9)+place(S.flower(),220,520,.7),'Cat by Window')},
-    {id:'two-cats', title:'Two Cat Friends', draw:()=>svgWrap(place(S.cat(),260,340,1.7)+place(S.cat(),540,340,1.7)+place(S.heart(),400,180,.9)+place(S.sun(),680,100,.7)+place(S.cloud(),120,120,.6),'Two Cat Friends')},
-    {id:'cat-flowers', title:'Garden Cat', draw:()=>svgWrap(place(S.hill(),400,420,1.2)+place(S.cat(),400,300,1.9)+place(S.flower(),140,460,1)+place(S.flower(),240,500,.8)+place(S.flower(),560,480,.9)+place(S.flower(),660,450,1)+place(S.sun(),650,100,.75)+`<g transform="translate(180 200) scale(1.1)" stroke="#111" stroke-width="3" fill="none"><ellipse cx="-14" cy="0" rx="14" ry="22"/><ellipse cx="14" cy="0" rx="14" ry="22"/><path d="M0 -10 V20"/><circle cx="0" cy="-14" r="3"/></g>`,'Garden Cat')},
-    {id:'sleepycat', title:'Sleepy Cat', draw:()=>svgWrap(`<g transform="translate(400 340) scale(2.3)" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"><ellipse cx="0" cy="10" rx="44" ry="30"/><circle cx="-10" cy="-20" r="26"/><path d="M-30 -36 L-24 -58 L-8 -40"/><path d="M8 -40 L16 -56 L26 -34"/><path d="M-18 -22 Q-14 -18 -10 -22"/><path d="M-6 -22 Q-2 -18 2 -22"/><path d="M-14 -10 Q-8 -4 -2 -10"/><path d="M30 0 Q55 -20 50 18"/><path d="M-50 20 Q-30 8 -20 22"/></g>`+place(S.star(),140,120,.7)+place(S.star(),220,80,.5)+place(S.star(),650,140,.6)+place(`<g stroke="#111" stroke-width="3" fill="none"><path d="M20 -20 A28 28 0 1 0 20 20 A18 18 0 1 1 20 -20"/></g>`,650,90,1.2),'Sleepy Cat')},
+    {id:'cat-sit', title:'Happy Cat', draw:()=>svgWrap(skyBits()+grassBits()+place(S.cat(),400,320,2.15)+place(S.heart(),170,260,0.75)+place(S.heart(),640,280,0.55)+place(S.flower(),140,500,0.8),'Happy Cat')},
+    {id:'cat-yarn', title:'Cat & Yarn', draw:()=>svgWrap(skyBits()+place(S.cat(),300,310,2)+`<g transform="translate(530 390) scale(1.5)"><circle ${P('#7ec8ff')} cx="0" cy="0" r="28"/><path ${none()} d="M-18 -10 Q0 -24 18 -8M-20 6 Q0 20 20 4M-10 -22 Q-28 0 -8 22M12 -20 Q28 0 10 22"/><path ${none()} d="M26 10 Q70 40 90 20"/></g>`+place(S.flower(),120,500,0.85)+place(S.flower(),700,510,0.7),'Cat & Yarn')},
+    {id:'cat-window', title:'Cat by Window', draw:()=>svgWrap(`<g><rect ${P('#c8eeff')} x="80" y="60" width="300" height="360" rx="8"/><path ${none()} d="M230 60 V420 M80 240 H380"/><rect ${P('#fff')} x="96" y="78" width="118" height="146" rx="4" opacity=".35" stroke="none"/></g>`+place(S.sun(),200,160,0.55)+place(S.cloud(),280,200,0.4)+place(S.cat(),560,340,1.85)+place(S.flower(),120,500,0.95)+place(S.flower(),230,520,0.7)+place(S.butterfly(),620,160,0.8),'Cat by Window')},
+    {id:'two-cats', title:'Two Cat Friends', draw:()=>svgWrap(skyBits()+grassBits()+place(S.cat(),260,340,1.7)+place(S.cat(),540,340,1.7)+place(S.heart(),400,180,0.95)+place(S.flower(),120,510,0.7),'Two Cat Friends')},
+    {id:'cat-flowers', title:'Garden Cat', draw:()=>svgWrap(grassBits()+skyBits()+place(S.cat(),400,300,1.9)+place(S.flower(),140,460,1)+place(S.flower(),240,510,0.8)+place(S.flower(),560,490,0.9)+place(S.flower(),680,450,1)+place(S.butterfly(),180,200,1.05)+place(S.butterfly(),640,220,0.8),'Garden Cat')},
+    {id:'sleepycat', title:'Sleepy Cat', draw:()=>svgWrap(place(S.moon(),650,100,1.3)+place(S.star(),140,120,0.8)+place(S.star(),220,70,0.5)+place(S.star(),500,80,0.45)+place(S.star(),80,280,0.4)+place(S.cat(),400,340,2.2)+place(S.heart(),200,240,0.5),'Sleepy Cat')}
   ],
   Dogs: [
-    {id:'happy-dog', title:'Happy Puppy', draw:()=>svgWrap(place(S.dog(),400,320,2.1)+place(S.sun(),120,100,.8)+place(S.cloud(),600,120,.7)+place(S.heart(),200,240,.6)+`<g transform="translate(620 420)" stroke="#111" stroke-width="3" fill="none"><circle cx="0" cy="0" r="26"/><path d="M-18 0 H18 M0 -18 V18 M-12 -12 L12 12 M12 -12 L-12 12"/></g>`,'Happy Puppy')},
-    {id:'dog-park', title:'Dog in the Park', draw:()=>svgWrap(place(S.tree(),140,320,1.3)+place(S.tree(),660,340,1.1)+place(S.hill(),400,480,1)+place(S.dog(),400,360,1.7)+place(S.sun(),400,90,.7)+place(S.bird(),560,160,.7),'Dog in the Park')},
-    {id:'dog-bone', title:'Dog with Bone', draw:()=>svgWrap(place(S.dog(),360,300,2)+`<g transform="translate(560 360) rotate(-20) scale(1.3)" stroke="#111" stroke-width="3" fill="none"><path d="M-30 -10 A12 12 0 1 1 -30 10 H30 A12 12 0 1 1 30 -10 Z"/></g>`+place(S.flower(),140,480,.8)+place(S.cloud(),600,100,.6),'Dog with Bone')},
-    {id:'two-dogs', title:'Puppy Friends', draw:()=>svgWrap(place(S.dog(),250,340,1.6)+place(S.dog(),550,340,1.6)+place(S.sun(),680,100,.7)+place(S.heart(),400,160,.8)+place(S.flower(),120,500,.7)+place(S.flower(),680,500,.7),'Puppy Friends')},
-    {id:'dog-boat', title:'Dog on a Boat', draw:()=>svgWrap(place(S.wave(),400,480,1.2)+place(S.wave(),400,520,1)+place(S.boat(),400,340,1.5)+place(S.dog(),400,220,1.2)+place(S.sun(),120,100,.75)+place(S.cloud(),620,120,.55)+place(S.fish(),650,480,.6),'Dog on a Boat')},
-    {id:'dog-balloons', title:'Dog & Balloons', draw:()=>svgWrap(place(S.dog(),400,360,1.9)+place(S.balloon(),250,180,1.1)+place(S.balloon(),320,140,1)+place(S.balloon(),520,160,1.15)+place(S.cloud(),650,80,.5)+place(S.sun(),120,90,.65),'Dog & Balloons')},
+    {id:'happy-dog', title:'Happy Puppy', draw:()=>svgWrap(skyBits()+grassBits()+place(S.dog(),400,320,2.1)+place(S.heart(),200,230,0.6)+`<g transform="translate(630 430)"><circle ${P('#ff8a5b')} cx="0" cy="0" r="26"/><path ${none()} d="M-18 0 H18 M0 -18 V18 M-12 -12 L12 12 M12 -12 L-12 12"/></g>`,'Happy Puppy')},
+    {id:'dog-park', title:'Dog in the Park', draw:()=>svgWrap(place(S.tree(),140,300,1.25)+place(S.tree(),670,320,1.05)+grassBits()+place(S.dog(),400,360,1.7)+place(S.sun(),400,90,0.75)+place(S.bird(),560,150,0.75)+place(S.flower(),240,500,0.7),'Dog in the Park')},
+    {id:'dog-bone', title:'Dog with Bone', draw:()=>svgWrap(skyBits()+grassBits()+place(S.dog(),360,300,2)+`<g transform="translate(570 360) rotate(-20) scale(1.3)"><path ${P('#fff')} d="M-30 -10 A12 12 0 1 1 -30 10 H30 A12 12 0 1 1 30 -10 Z"/></g>`+place(S.flower(),140,500,0.8),'Dog with Bone')},
+    {id:'two-dogs', title:'Puppy Friends', draw:()=>svgWrap(skyBits()+grassBits()+place(S.dog(),250,340,1.6)+place(S.dog(),550,340,1.6)+place(S.heart(),400,160,0.85)+place(S.flower(),120,510,0.7),'Puppy Friends')},
+    {id:'dog-boat', title:'Dog on a Boat', draw:()=>svgWrap(place(S.sun(),120,100,0.8)+place(S.cloud(),620,110,0.6)+waterBand(430)+place(S.boat(),400,340,1.55)+place(S.dog(),400,268,0.85)+place(S.fish(),160,520,0.55)+place(S.fish(),680,540,0.45),'Dog on a Boat')},
+    {id:'dog-balloons', title:'Dog & Balloons', draw:()=>svgWrap(skyBits()+grassBits()+place(S.dog(),400,360,1.9)+place(S.balloon(),250,180,1.1)+place(S.balloonBlue(),330,140,1)+place(S.balloonSun(),530,160,1.15),'Dog & Balloons')}
   ],
   Farm: [
-    {id:'farm-friends', title:'Farm Friends', draw:()=>svgWrap(place(S.hill(),400,460,1.2)+place(S.sun(),650,90,.8)+place(S.tree(),120,300,1.1)+place(S.duck(),280,380,1.2)+place(S.bunny(),450,360,1.3)+place(S.cat(),620,370,1.1)+`<g transform="translate(400 220)" stroke="#111" stroke-width="3" fill="none"><path d="M-60 40 H60 V-10 H20 L0 -40 L-20 -10 H-60 Z"/><rect x="-18" y="0" width="20" height="40"/><circle cx="36" cy="8" r="8"/></g>`,'Farm Friends')},
-    {id:'barn-cow', title:'Barn Day', draw:()=>svgWrap(`<g transform="translate(220 280)" stroke="#111" stroke-width="3" fill="none"><path d="M-80 80 H80 V-10 H30 L0 -60 L-30 -10 H-80 Z"/><rect x="-20" y="20" width="28" height="60"/><path d="M-50 -10 V20 H-20"/><path d="M-45 5 H-25 M-45 15 H-25"/></g>`+place(S.duck(),480,400,1.3)+place(S.bunny(),620,380,1.2)+place(S.sun(),650,90,.7)+place(S.cloud(),400,100,.6)+place(S.flower(),360,500,.8)+place(S.flower(),700,480,.7),'Barn Day')},
-    {id:'pony-ish', title:'Unicorn Farm', draw:()=>svgWrap(place(S.hill(),400,480,1)+place(S.unicorn(),400,320,1.8)+place(S.flower(),140,480,1)+place(S.flower(),220,510,.7)+place(S.flower(),650,490,.9)+place(S.sun(),120,100,.75)+place(S.cloud(),600,110,.6)+place(S.heart(),560,200,.5),'Unicorn Farm')},
-    {id:'chickens', title:'Ducks & Flowers', draw:()=>svgWrap(place(S.duck(),250,340,1.5)+place(S.duck(),480,360,1.3)+place(S.duck(),650,340,1.1)+place(S.flower(),120,480,1)+place(S.flower(),380,500,.8)+place(S.flower(),560,470,.9)+place(S.sun(),650,90,.7)+place(S.cloud(),180,100,.55),'Ducks & Flowers')},
-    {id:'bear-picnic', title:'Bear Picnic', draw:()=>svgWrap(place(S.tree(),120,300,1.2)+place(S.bear(),400,320,1.8)+`<g transform="translate(560 420)" stroke="#111" stroke-width="3" fill="none"><ellipse cx="0" cy="0" rx="50" ry="28"/><path d="M-30 -10 Q0 -30 30 -10"/><circle cx="-15" cy="0" r="8"/><circle cx="12" cy="5" r="6"/></g>`+place(S.sun(),650,90,.7)+place(S.bird(),600,180,.6)+place(S.flower(),200,500,.8),'Bear Picnic')},
-    {id:'farm-truck', title:'Farm Truck', draw:()=>svgWrap(place(S.hill(),400,480,1)+place(S.car(),400,360,1.6)+place(S.bunny(),400,250,1)+place(S.tree(),120,320,1)+place(S.sun(),650,100,.75)+place(S.flower(),650,480,.8)+place(S.cloud(),200,100,.5),'Farm Truck')},
+    {id:'farm-friends', title:'Farm Friends', draw:()=>svgWrap(skyBits()+grassBits()+place(S.tree(),110,300,1.05)+place(S.duck(),260,390,1.15)+place(S.bunny(),450,360,1.25)+place(S.cat(),640,370,1.05)+`<g transform="translate(400 210)"><path ${P('#ff8a5b')} d="M-60 44 H60 V-8 H20 L0 -40 L-20 -8 H-60 Z"/><rect ${P('#e8c792')} x="-18" y="4" width="20" height="40"/><circle ${P('#c8eeff')} cx="36" cy="10" r="8"/></g>`,'Farm Friends')},
+    {id:'barn-day', title:'Barn Day', draw:()=>svgWrap(skyBits()+grassBits()+`<g transform="translate(220 280)"><path ${P('#ff6b6b')} d="M-80 80 H80 V-8 H30 L0 -58 L-30 -8 H-80 Z"/><rect ${P('#e8c792')} x="-20" y="22" width="28" height="58"/><rect ${P('#c8eeff')} x="-58" y="8" width="24" height="18" rx="2"/><path ${none()} d="M-46 8 V26 M-58 17 H-34"/></g>`+place(S.duck(),500,400,1.25)+place(S.bunny(),650,380,1.15)+place(S.flower(),360,510,0.8)+place(S.flower(),720,490,0.7),'Barn Day')},
+    {id:'unicorn-farm', title:'Unicorn Farm', draw:()=>svgWrap(skyBits()+grassBits()+place(S.unicorn(),400,320,1.85)+place(S.flower(),140,490,1)+place(S.flower(),230,520,0.7)+place(S.flower(),660,500,0.9)+place(S.heart(),560,200,0.5)+place(S.butterfly(),180,180,0.8),'Unicorn Farm')},
+    {id:'ducks-flowers', title:'Ducks & Flowers', draw:()=>svgWrap(skyBits()+grassBits()+place(S.duck(),250,340,1.5)+place(S.duck(),480,360,1.25)+place(S.duck(),660,340,1.05)+place(S.flower(),120,490,1)+place(S.flower(),380,510,0.8)+place(S.flower(),560,480,0.9),'Ducks & Flowers')},
+    {id:'bear-picnic', title:'Bear Picnic', draw:()=>svgWrap(place(S.tree(),120,290,1.2)+skyBits()+grassBits()+place(S.bear(),400,320,1.8)+`<g transform="translate(580 430)"><ellipse ${P('#fff')} cx="0" cy="0" rx="52" ry="28"/><path ${none()} d="M-30 -8 Q0 -28 30 -8"/><circle ${P('#ff8a5b')} cx="-16" cy="2" r="9"/><circle ${P('#7ec8ff')} cx="14" cy="6" r="7"/><path ${P('#ffe566')} d="M-4 8 h16 v10 h-16 z"/></g>`+place(S.bird(),620,170,0.65)+place(S.flower(),220,510,0.8),'Bear Picnic')},
+    {id:'farm-truck', title:'Farm Truck', draw:()=>svgWrap(skyBits()+grassBits()+place(S.tree(),110,310,1)+place(S.car(),420,400,1.55)+place(S.bunny(),400,312,0.85)+place(S.flower(),680,490,0.85)+place(S.flower(),200,520,0.7),'Farm Truck')}
   ],
   Vehicles: [
-    {id:'firetruck', title:'Friendly Fire Truck', draw:()=>svgWrap(place(S.firetruck(),400,340,2)+place(S.sun(),120,100,.75)+place(S.cloud(),620,110,.65)+place(S.cat(),400,200,1)+place(S.heart(),560,220,.5),'Friendly Fire Truck')},
-    {id:'rocket-space', title:'Rocket Adventure', draw:()=>svgWrap(place(S.rocket(),400,300,2)+place(S.star(),120,120,.8)+place(S.star(),200,80,.5)+place(S.star(),650,140,.7)+place(S.star(),700,60,.45)+place(S.star(),100,400,.55)+place(S.star(),680,420,.6)+`<g transform="translate(160 250)" stroke="#111" stroke-width="3" fill="none"><path d="M20 -20 A28 28 0 1 0 20 20 A18 18 0 1 1 20 -20"/></g>`+place(S.bunny(),400,140,.8),'Rocket Adventure')},
-    {id:'school-bus', title:'School Bus', draw:()=>svgWrap(place(S.bus(),400,320,1.8)+place(S.sun(),120,90,.7)+place(S.cloud(),650,100,.6)+place(S.kid(),280,200,1)+place(S.kid(),400,190,1)+place(S.kid(),520,200,1)+place(S.tree(),700,380,.8),'School Bus')},
-    {id:'sailboat', title:'Sailboat Day', draw:()=>svgWrap(place(S.wave(),400,460,1.3)+place(S.wave(),400,510,1.1)+place(S.boat(),400,300,1.8)+place(S.sun(),120,100,.8)+place(S.cloud(),620,120,.6)+place(S.bird(),560,160,.7)+place(S.fish(),180,500,.7)+place(S.fish(),650,520,.55),'Sailboat Day')},
-    {id:'train-ride', title:'Little Train', draw:()=>svgWrap(place(S.train(),400,320,1.8)+place(S.sun(),650,90,.7)+place(S.cloud(),160,100,.6)+place(S.tree(),120,380,.9)+place(S.tree(),700,390,.8)+place(S.hill(),400,500,1)+place(S.bird(),560,160,.55),'Little Train')},
-    {id:'bike-day', title:'Bike Ride', draw:()=>svgWrap(place(S.bike(),400,340,2)+place(S.kid(),400,200,1.2)+place(S.sun(),120,100,.75)+place(S.cloud(),620,110,.6)+place(S.tree(),700,360,.9)+place(S.flower(),140,500,.8)+place(S.flower(),220,520,.6)+place(S.heart(),560,200,.5),'Bike Ride')},
+    {id:'firetruck', title:'Friendly Fire Truck', draw:()=>svgWrap(skyBits()+grassBits()+place(S.firetruck(),420,390,1.9)+place(S.cat(),330,268,0.95)+place(S.heart(),600,220,0.5)+place(S.flower(),140,510,0.7),'Friendly Fire Truck')},
+    {id:'rocket-space', title:'Rocket Adventure', draw:()=>svgWrap(place(S.moon(),150,230,1.2)+place(S.star(),120,100,0.8)+place(S.star(),210,70,0.5)+place(S.star(),660,130,0.75)+place(S.star(),720,60,0.4)+place(S.star(),90,400,0.5)+place(S.star(),700,420,0.6)+place(S.star(),500,80,0.35)+place(S.rocket(),400,310,1.9)+place(S.bunny(),400,292,0.42),'Rocket Adventure')},
+    {id:'school-bus', title:'School Bus', draw:()=>svgWrap(skyBits()+grassBits()+place(S.bus(),400,340,1.75)+place(S.kid(),250,228,0.85)+place(S.kid(),400,220,0.85)+place(S.kid(),540,228,0.85)+place(S.tree(),710,370,0.75),'School Bus')},
+    {id:'sailboat', title:'Sailboat Day', draw:()=>svgWrap(place(S.sun(),120,100,0.85)+place(S.cloud(),620,110,0.6)+waterBand(420)+place(S.boat(),400,300,1.75)+place(S.bird(),560,160,0.7)+place(S.fish(),170,520,0.7)+place(S.fish(),670,540,0.5),'Sailboat Day')},
+    {id:'train-ride', title:'Little Train', draw:()=>svgWrap(skyBits()+place(S.tree(),110,360,0.9)+place(S.tree(),710,370,0.8)+grassBits()+place(S.train(),400,330,1.8)+place(S.bird(),560,150,0.55),'Little Train')},
+    {id:'bike-day', title:'Bike Ride', draw:()=>svgWrap(skyBits()+grassBits()+place(S.tree(),710,330,0.9)+place(S.bike(),400,390,1.85)+place(S.kid(),430,268,1.05)+place(S.flower(),140,510,0.85)+place(S.flower(),230,530,0.6)+place(S.heart(),600,200,0.5),'Bike Ride')}
   ]
 };
 
 let currentTheme = 'Cats';
 let currentPrint = null;
 let currentReqSvg = null;
+let printFillMode = 'color';
+let reqFillMode = 'color';
+
+function applyFillMode(el, mode){
+  if(!el) return;
+  el.classList.toggle('outline-only', mode==='outline');
+}
+function bindModeChips(id, getter, setter, onChange){
+  document.getElementById(id).onclick = e=>{
+    const b = e.target.closest('[data-libmode]');
+    if(!b) return;
+    setter(b.getAttribute('data-libmode'));
+    document.querySelectorAll('#'+id+' .chip').forEach(c=>c.classList.toggle('on', c===b));
+    onChange();
+  };
+}
 
 function renderThemes(){
   const box = document.getElementById('themeChips');
@@ -752,6 +1205,7 @@ function openPrintable(p){
   currentPrint = p;
   const frame = document.getElementById('printFrame');
   frame.innerHTML = p.draw();
+  applyFillMode(frame, printFillMode);
   document.getElementById('printViewer').classList.add('on');
   document.getElementById('printViewer').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -759,15 +1213,32 @@ document.getElementById('btnClosePrint').onclick = ()=>{
   document.getElementById('printViewer').classList.remove('on');
   currentPrint = null;
 };
-function svgToPngDownload(svgString, filename){
-  const svg = svgString;
+bindModeChips('printModeChips', ()=>printFillMode, v=>printFillMode=v, ()=>{
+  applyFillMode(document.getElementById('printFrame'), printFillMode);
+});
+bindModeChips('reqModeChips', ()=>reqFillMode, v=>reqFillMode=v, ()=>{
+  applyFillMode(document.getElementById('reqFrame'), reqFillMode);
+});
+
+function svgForExport(svgString, mode){
+  if(mode!=='outline') return svgString;
+  return svgString.replace(/class="paint"/g, 'class="paint"').replace(/<svg /,'<svg class="outline-only" ');
+}
+function svgToPngDownload(svgString, filename, mode){
+  const wrapped = `<div xmlns="http://www.w3.org/1999/xhtml" class="${mode==='outline'?'outline-only':''}">${svgString}</div>`;
+  // Simpler: rewrite paint fills to white when outline
+  let svg = svgString;
+  if(mode==='outline'){
+    svg = svg.replace(/class="paint" fill="[^"]*"/g, 'class="paint" fill="#ffffff"');
+  }
   const blob = new Blob([svg], {type:'image/svg+xml;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const img = new Image();
   img.onload = ()=>{
     const c = document.createElement('canvas');
-    c.width = 1600; c.height = 1200;
+    c.width = 2000; c.height = 1500;
     const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height);
     ctx.drawImage(img,0,0,c.width,c.height);
     URL.revokeObjectURL(url);
@@ -780,12 +1251,15 @@ function svgToPngDownload(svgString, filename){
 }
 document.getElementById('btnDownloadPrint').onclick = ()=>{
   if(!currentPrint) return;
-  svgToPngDownload(currentPrint.draw(), (currentPrint.title||'coloring')+'.png');
+  svgToPngDownload(currentPrint.draw(), (currentPrint.title||'coloring')+'.png', printFillMode);
 };
 document.getElementById('btnPrintPrintable').onclick = ()=>{
   if(!currentPrint) return;
   const area=document.getElementById('printArea');
-  area.innerHTML = currentPrint.draw();
+  area.className = printFillMode==='outline' ? 'outline-only' : '';
+  let svg = currentPrint.draw();
+  if(printFillMode==='outline') svg = svg.replace(/class="paint" fill="[^"]*"/g, 'class="paint" fill="#ffffff"');
+  area.innerHTML = svg;
   setTimeout(()=>window.print(), 50);
 };
 
@@ -830,11 +1304,23 @@ const EXTRAS = {
   tree:['tree','trees']
 };
 
+// Local seat of a subject riding a vehicle (in the vehicle's local coords)
+const SEATS = {
+  firetruck: { vx:420, vy:400, vs:1.85, x:-48, y:-70, s:0.85 }, // sitting on the cab roof
+  car:       { vx:420, vy:400, vs:1.7,  x:0,   y:-38, s:0.55 }, // in the cabin
+  bus:       { vx:400, vy:390, vs:1.7,  x:-8,  y:-30, s:0.5  },
+  train:     { vx:410, vy:390, vs:1.7,  x:14,  y:-28, s:0.5  },
+  rocket:    { vx:400, vy:330, vs:1.85, x:0,   y:-8,  s:0.4  }, // in the window
+  boat:      { vx:400, vy:360, vs:1.7,  x:0,   y:4,   s:0.88 }, // in the hull
+  bike:      { vx:400, vy:400, vs:1.7,  x:10,  y:-42, s:0.72 }
+};
+
 function matchKey(dict, text){
   const found = [];
   for(const [key, words] of Object.entries(dict)){
     for(const w of words){
-      const re = new RegExp('\\b'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+')+'\\b','i');
+      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      const re = new RegExp('\\b' + escaped + '\\b', 'i');
       if(re.test(text)){ found.push(key); break; }
     }
   }
@@ -856,31 +1342,35 @@ function composeScene(raw){
   extras.forEach(e=>recognized.push(e));
 
   let parts = '';
-  // background by setting
   const set = settings[0] || (vehicles.includes('rocket')?'space': vehicles.includes('boat')?'beach': subjects.includes('fish')?'undersea': 'park');
   if(set==='beach' || set==='undersea'){
-    parts += place(S.wave(),400,500,1.3) + place(S.wave(),400,540,1.1);
-    parts += place(S.sun(),120,100,.75);
-    if(set==='undersea'){ parts += place(S.fish(),150,420,.7)+place(S.fish(),650,460,.55); }
+    parts += place(S.sun(), 130, 100, 0.85) + place(S.cloud(), 620, 110, 0.6);
+    parts += waterBand(430);
+    if(set==='undersea'){
+      parts += place(S.fish(), 150, 430, 0.7) + place(S.fish(), 650, 470, 0.5);
+      parts += place(S.star(), 200, 200, 0.35) + place(S.star(), 600, 180, 0.3); // sparkles
+    }
   } else if(set==='space'){
-    parts += place(S.star(),120,100,.7)+place(S.star(),200,60,.45)+place(S.star(),680,120,.6)+place(S.star(),720,300,.5)+place(S.star(),80,360,.55);
-    parts += `<g transform="translate(140 220)" stroke="#111" stroke-width="3" fill="none"><path d="M20 -20 A28 28 0 1 0 20 20 A18 18 0 1 1 20 -20"/></g>`;
+    parts += place(S.moon(), 150, 230, 1.15);
+    parts += place(S.star(),120,100,0.75)+place(S.star(),200,60,0.45)+place(S.star(),680,120,0.65)+place(S.star(),720,300,0.5)+place(S.star(),80,360,0.55)+place(S.star(),500,80,0.35);
   } else if(set==='farm'){
-    parts += place(S.hill(),400,480,1.1)+place(S.sun(),650,90,.7)+place(S.tree(),120,320,1);
+    parts += skyBits() + grassBits() + place(S.tree(), 110, 300, 1);
   } else if(set==='forest' || set==='park'){
-    parts += place(S.hill(),400,500,1)+place(S.tree(),120,330,1.1)+place(S.tree(),680,340,1)+place(S.sun(),400,90,.65);
+    parts += skyBits() + grassBits() + place(S.tree(), 110, 310, 1.1) + place(S.tree(), 700, 320, 1);
   } else if(set==='city'){
-    parts += `<g stroke="#111" stroke-width="3" fill="none">
-      <rect x="60" y="220" width="90" height="200"/><rect x="170" y="160" width="80" height="260"/>
-      <rect x="270" y="200" width="70" height="220"/><rect x="560" y="180" width="100" height="240"/>
-      <rect x="680" y="240" width="80" height="180"/>
-      <path d="M40 420 H760"/>
-    </g>` + place(S.sun(),420,90,.55) + place(S.cloud(),500,100,.45);
+    parts += place(S.sun(), 420, 90, 0.6) + place(S.cloud(), 500, 100, 0.45);
+    parts += `<g>
+      <rect ${P('#d7e4f5')} x="60" y="200" width="90" height="220"/>
+      <rect ${P('#c8d8ee')} x="170" y="150" width="80" height="270"/>
+      <rect ${P('#d7e4f5')} x="270" y="190" width="70" height="230"/>
+      <rect ${P('#c8d8ee')} x="560" y="170" width="100" height="250"/>
+      <rect ${P('#d7e4f5')} x="680" y="230" width="80" height="190"/>
+      <path ${P('#cfd6c4')} d="M40 420 H760 V520 H40 Z"/>
+    </g>`;
   } else {
-    parts += place(S.sun(),650,90,.7)+place(S.cloud(),160,110,.6)+place(S.hill(),400,500,1);
+    parts += skyBits() + grassBits();
   }
 
-  // extras scattered
   const extraDraw = {sun:S.sun,star:S.star,cloud:S.cloud,heart:S.heart,flower:S.flower,balloon:S.balloon,tree:S.tree};
   extras.slice(0,4).forEach((e,i)=>{
     if(e==='sun' && (set==='beach'||set==='park'||set==='farm')) return;
@@ -889,52 +1379,47 @@ function composeScene(raw){
     const sp=spots[i%spots.length];
     parts += place(fn(), sp[0], sp[1], e==='balloon'?1: .7);
   });
+  if(extras.includes('balloon')){
+    parts += place(S.balloonBlue(), 300, 150, 0.9) + place(S.balloonSun(), 520, 170, 0.85);
+  }
 
   const subjKey = subjects[0] || null;
   const vehKey = vehicles[0] || null;
   const subjDraw = {cat:S.cat,dog:S.dog,bunny:S.bunny,bear:S.bear,dino:S.dino,unicorn:S.unicorn,fish:S.fish,bird:S.bird,owl:S.owl,duck:S.duck,kid:S.kid};
   const vehDraw = {firetruck:S.firetruck,car:S.car,bus:S.bus,train:S.train,rocket:S.rocket,boat:S.boat,bike:S.bike};
 
-  if(vehKey && subjKey && riding){
-    // vehicle lower center, subject on top
-    if(vehKey==='rocket'){
-      parts += place(vehDraw[vehKey](), 400, 340, 1.8);
-      parts += place(subjDraw[subjKey](), 400, 160, 1.0);
-    } else if(vehKey==='boat'){
-      parts += place(vehDraw[vehKey](), 400, 360, 1.6);
-      parts += place(subjDraw[subjKey](), 400, 240, 1.1);
-    } else if(vehKey==='bike'){
-      parts += place(vehDraw[vehKey](), 400, 380, 1.7);
-      parts += place(subjDraw[subjKey](), 400, 230, 1.1);
-    } else {
-      parts += place(vehDraw[vehKey](), 400, 380, 1.7);
-      parts += place(subjDraw[subjKey](), 400, 230, 1.15);
+  if(vehKey && subjKey && riding && SEATS[vehKey]){
+    const seat = SEATS[vehKey];
+    // Vehicle first, then subject at the seat so it sits naturally on/in
+    parts += place(vehDraw[vehKey](), seat.vx, seat.vy, seat.vs);
+    const sx = seat.vx + seat.x * seat.vs;
+    const sy = seat.vy + seat.y * seat.vs;
+    parts += place(subjDraw[subjKey](), sx, sy, seat.s * (subjKey==='fish'||subjKey==='bird'?0.9:1));
+    if(subjects[1] && subjDraw[subjects[1]]){
+      parts += place(subjDraw[subjects[1]](), sx + 70, sy + 10, seat.s * 0.75);
     }
   } else {
-    if(vehKey) parts += place(vehDraw[vehKey](), 400, 360, 1.7);
+    if(vehKey){
+      const seat = SEATS[vehKey] || {vx:400,vy:380,vs:1.7};
+      parts += place(vehDraw[vehKey](), seat.vx, seat.vy, seat.vs);
+    }
     if(subjKey){
-      const x = vehKey ? 220 : 400;
-      const y = vehKey ? 300 : 320;
-      const sc = vehKey ? 1.2 : 1.9;
+      const x = vehKey ? 200 : 400;
+      const y = vehKey ? 320 : 330;
+      const sc = vehKey ? 1.15 : 1.9;
       parts += place(subjDraw[subjKey](), x, y, sc);
-      if(subjects[1] && subjDraw[subjects[1]]) parts += place(subjDraw[subjects[1]](), 580, 340, 1.4);
+      if(subjects[1] && subjDraw[subjects[1]]) parts += place(subjDraw[subjects[1]](), 600, 340, 1.4);
     }
   }
 
-  // friendly default if nothing matched
   let usedDefault = false;
   if(!subjKey && !vehKey){
     usedDefault = true;
-    parts += place(S.cat(), 320, 330, 1.6) + place(S.dog(), 520, 340, 1.5) + place(S.heart(), 400, 180, .8) + place(S.sun(), 650, 90, .7);
+    parts += place(S.cat(), 300, 330, 1.55) + place(S.dog(), 530, 340, 1.45) + place(S.heart(), 400, 180, 0.8);
   }
 
   const title = raw.trim().slice(0,60) || 'Coloring page';
-  return {
-    svg: svgWrap(parts, 800, 600, title),
-    recognized,
-    usedDefault,
-    set
-  };
+  return { svg: svgWrap(parts, 800, 600, title), recognized, usedDefault, set };
 }
 
 function showReqMsg(html, kind){
@@ -961,7 +1446,7 @@ function makeRequest(){
   if(isBlocked(raw)){
     currentReqSvg = null;
     document.getElementById('reqViewer').classList.remove('on');
-    const picks = SAFE_SUGGESTIONS.sort(()=>Math.random()-0.5).slice(0,3);
+    const picks = SAFE_SUGGESTIONS.slice().sort(()=>Math.random()-0.5).slice(0,3);
     showReqMsg(`Let's pick something else! How about… <div class="suggestions" style="margin-top:8px">${picks.map(p=>`<button type="button" data-s="${p}">${p}</button>`).join('')}</div>`, 'warn');
     document.querySelectorAll('#reqMsg button[data-s]').forEach(b=>{
       b.onclick=()=>{ document.getElementById('reqText').value=b.getAttribute('data-s'); makeRequest(); };
@@ -971,6 +1456,7 @@ function makeRequest(){
   const result = composeScene(raw);
   currentReqSvg = result.svg;
   document.getElementById('reqFrame').innerHTML = result.svg;
+  applyFillMode(document.getElementById('reqFrame'), reqFillMode);
   document.getElementById('reqViewer').classList.add('on');
   if(result.usedDefault){
     showReqMsg(`I made a friendly default scene. Try words like cat, dog, bunny, rocket, beach, flowers…`, 'ok');
@@ -991,27 +1477,32 @@ document.getElementById('btnClearReq').onclick = ()=>{
 };
 document.getElementById('btnDownloadReq').onclick = ()=>{
   if(!currentReqSvg) return;
-  svgToPngDownload(currentReqSvg, 'requested-coloring-page.png');
+  svgToPngDownload(currentReqSvg, 'requested-coloring-page.png', reqFillMode);
 };
 document.getElementById('btnPrintReq').onclick = ()=>{
   if(!currentReqSvg) return;
   const area=document.getElementById('printArea');
-  area.innerHTML = currentReqSvg;
+  area.className = reqFillMode==='outline' ? 'outline-only' : '';
+  let svg = currentReqSvg;
+  if(reqFillMode==='outline') svg = svg.replace(/class="paint" fill="[^"]*"/g, 'class="paint" fill="#ffffff"');
+  area.innerHTML = svg;
   setTimeout(()=>window.print(), 50);
 };
 
-/* init */
 renderThemes();
 renderGrid();
 
-// Expose a few hooks for Playwright tests
 window.__cpm = {
-  isBlocked, composeScene, normalizeText, renderColoring, makeRequest,
+  isBlocked, composeScene, normalizeText, computeLines, makeRequest, compositeOutput,
   getOutCanvas: ()=>outCanvas,
+  getWork: ()=>work,
   getCurrentReqSvg: ()=>currentReqSvg,
+  setPhotoStyle: (s)=>{ photoStyle=s; document.querySelectorAll('#styleChips .chip').forEach(c=>c.classList.toggle('on', c.getAttribute('data-style')===s)); if(work) compositeOutput(); },
+  setReqFillMode: (m)=>{ reqFillMode=m; document.querySelectorAll('#reqModeChips .chip').forEach(c=>c.classList.toggle('on', c.getAttribute('data-libmode')===m)); applyFillMode(document.getElementById('reqFrame'), reqFillMode); },
+  setPrintFillMode: (m)=>{ printFillMode=m; document.querySelectorAll('#printModeChips .chip').forEach(c=>c.classList.toggle('on', c.getAttribute('data-libmode')===m)); applyFillMode(document.getElementById('printFrame'), printFillMode); },
   openTheme: (t)=>{ currentTheme=t; renderThemes(); renderGrid(); },
   openFirstPrintable: ()=>{ const p=(PRINTABLES[currentTheme]||[])[0]; if(p) openPrintable(p); return p; },
-  PRINTABLES
+  PRINTABLES, getPhotoStyle: ()=>photoStyle, getReqFillMode: ()=>reqFillMode
 };
 </script>
 </body>
