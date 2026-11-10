@@ -105,7 +105,7 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
     <div class="sliders" id="photoControls" hidden>
       <div class="slider">
         <label><span>Detail</span><span id="detailVal">Medium</span></label>
-        <input type="range" id="detail" min="0" max="100" value="48">
+        <input type="range" id="detail" min="0" max="100" value="55">
       </div>
       <div class="slider">
         <label><span>Line thickness</span><span id="thickVal">Medium</span></label>
@@ -317,69 +317,103 @@ function renderColoring(){
   for(let i=0,p=0;i<data.length;i+=4,p++){
     gray[p] = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
   }
-  const detail = +document.getElementById('detail').value; // 0..100
-  const thick = +document.getElementById('thick').value;   // 1..6
-  // Smooth then difference-of-gaussians / Sobel hybrid
-  const pre = boxBlurGray(boxBlurGray(gray, w, h, 2), w, h, 2);
-  const rSmall = 1;
-  const rBig = 4 + Math.round((100-detail)/18);
-  const blurSmall = boxBlurGray(pre, w, h, rSmall);
+  const detail = +document.getElementById('detail').value;
+  const thick = +document.getElementById('thick').value;
+  // Light smooth so major shapes stay, fur noise drops
+  const pre = boxBlurGray(gray, w, h, 2);
+  const rBig = 3 + Math.round((100-detail)/30);
+  const blurSmall = boxBlurGray(pre, w, h, 1);
   const blurBig = boxBlurGray(pre, w, h, rBig);
   const dog = new Float32Array(w*h);
-  for(let i=0;i<dog.length;i++) dog[i] = blurSmall[i] - blurBig[i];
+  for(let i=0;i<dog.length;i++) dog[i] = Math.abs(blurSmall[i] - blurBig[i]);
 
-  // Sobel magnitude on smoothed gray
-  const smooth = boxBlurGray(pre, w, h, 1);
   const mag = new Float32Array(w*h);
   for(let y=1;y<h-1;y++){
     for(let x=1;x<w-1;x++){
       const i = y*w+x;
       const gx =
-        -smooth[i-w-1]-2*smooth[i-1]-smooth[i+w-1] +
-         smooth[i-w+1]+2*smooth[i+1]+smooth[i+w+1];
+        -pre[i-w-1]-2*pre[i-1]-pre[i+w-1] +
+         pre[i-w+1]+2*pre[i+1]+pre[i+w+1];
       const gy =
-        -smooth[i-w-1]-2*smooth[i-w]-smooth[i-w+1] +
-         smooth[i+w-1]+2*smooth[i+w]+smooth[i+w+1];
-      mag[i] = Math.sqrt(gx*gx + gy*gy);
+        -pre[i-w-1]-2*pre[i-w]-pre[i-w+1] +
+         pre[i+w-1]+2*pre[i+w]+pre[i+w+1];
+      mag[i] = Math.sqrt(gx*gx + gy*gy) + dog[i]*1.4;
     }
   }
-  // Combine
   let maxM = 1;
-  for(let i=0;i<mag.length;i++){
-    const v = mag[i] + Math.abs(dog[i])*1.2;
-    mag[i] = v;
-    if(v>maxM) maxM = v;
-  }
-  // Threshold: higher detail => lower threshold => more lines
-  const t = maxM * (0.22 + (100-detail)/100 * 0.38);
-  const edges = new Uint8Array(w*h);
-  for(let i=0;i<mag.length;i++) edges[i] = mag[i] > t ? 1 : 0;
+  for(let i=0;i<mag.length;i++) if(mag[i]>maxM) maxM = mag[i];
 
-  // Dilate for thickness
-  const dil = new Uint8Array(w*h);
-  const rad = Math.max(0, thick-1);
-  for(let y=0;y<h;y++){
-    for(let x=0;x<w;x++){
-      let on = 0;
-      for(let dy=-rad; dy<=rad && !on; dy++){
-        for(let dx=-rad; dx<=rad; dx++){
-          const xx=x+dx, yy=y+dy;
-          if(xx>=0&&yy>=0&&xx<w&&yy<h && edges[yy*w+xx]) {on=1;break;}
-        }
+  // Canny-like hysteresis: keep strong edges and weak ones connected to them
+  const tHigh = maxM * (0.14 + (100-detail)/100 * 0.22);
+  const tLow  = tHigh * 0.35;
+  const edges = new Uint8Array(w*h);
+  const stack = new Int32Array(w*h);
+  let top = 0;
+  for(let i=0;i<mag.length;i++){
+    if(mag[i] >= tHigh){ edges[i]=2; stack[top++]=i; }
+  }
+  while(top){
+    const p = stack[--top];
+    const x = p%w, y = (p-x)/w;
+    for(let dy=-1;dy<=1;dy++){
+      for(let dx=-1;dx<=1;dx++){
+        if(!dx && !dy) continue;
+        const xx=x+dx, yy=y+dy;
+        if(xx<0||yy<0||xx>=w||yy>=h) continue;
+        const n=yy*w+xx;
+        if(!edges[n] && mag[n]>=tLow){ edges[n]=2; stack[top++]=n; }
       }
-      dil[y*w+x]=on;
     }
   }
-  // Remove tiny speckles (4-connected, size < 8)
+  for(let i=0;i<edges.length;i++) edges[i] = edges[i] ? 1 : 0;
+
+  // Morphological close to reconnect small gaps
+  function dilate(src, rad){
+    const out = new Uint8Array(w*h);
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        let on=0;
+        for(let dy=-rad; dy<=rad && !on; dy++){
+          for(let dx=-rad; dx<=rad; dx++){
+            const xx=x+dx, yy=y+dy;
+            if(xx>=0&&yy>=0&&xx<w&&yy<h && src[yy*w+xx]){ on=1; break; }
+          }
+        }
+        out[y*w+x]=on;
+      }
+    }
+    return out;
+  }
+  function erode(src, rad){
+    const out = new Uint8Array(w*h);
+    for(let y=0;y<h;y++){
+      for(let x=0;x<w;x++){
+        let on=1;
+        for(let dy=-rad; dy<=rad && on; dy++){
+          for(let dx=-rad; dx<=rad; dx++){
+            const xx=x+dx, yy=y+dy;
+            if(xx<0||yy<0||xx>=w||yy>=h || !src[yy*w+xx]){ on=0; break; }
+          }
+        }
+        out[y*w+x]=on;
+      }
+    }
+    return out;
+  }
+  let bin = erode(dilate(edges, 1), 1);
+  bin = dilate(bin, Math.max(0, thick-1));
+
+  // Remove tiny speckles
   const seen = new Uint8Array(w*h);
-  const stack = new Int32Array(w*h);
+  const st = new Int32Array(w*h);
+  const minSpeck = 12 + Math.round((100-detail)*0.2);
   for(let i=0;i<w*h;i++){
-    if(!dil[i] || seen[i]) continue;
-    let top=0, count=0;
-    stack[top++]=i; seen[i]=1;
+    if(!bin[i] || seen[i]) continue;
+    let tp=0, count=0;
+    st[tp++]=i; seen[i]=1;
     const cells=[];
-    while(top){
-      const p=stack[--top];
+    while(tp){
+      const p=st[--tp];
       cells.push(p); count++;
       const x=p%w, y=(p-x)/w;
       const nbs=[p-1,p+1,p-w,p+w];
@@ -387,16 +421,15 @@ function renderColoring(){
         if(n<0||n>=w*h) continue;
         const nx=n%w;
         if(Math.abs(nx-x)+Math.abs(((n-nx)/w)-y)!==1) continue;
-        if(dil[n]&&!seen[n]){seen[n]=1;stack[top++]=n;}
+        if(bin[n]&&!seen[n]){seen[n]=1;st[tp++]=n;}
       }
     }
-    const minSpeck = 24 + Math.round((100-detail)*0.6);
-    if(count<minSpeck) for(const p of cells) dil[p]=0;
+    if(count<minSpeck) for(const p of cells) bin[p]=0;
   }
 
   const out = outCtx.createImageData(w,h);
   for(let i=0,p=0;i<out.data.length;i+=4,p++){
-    const v = dil[p] ? 20 : 255;
+    const v = bin[p] ? 20 : 255;
     out.data[i]=out.data[i+1]=out.data[i+2]=v;
     out.data[i+3]=255;
   }
