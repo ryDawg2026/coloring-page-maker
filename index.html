@@ -47,7 +47,7 @@ input[type=file]{display:none}
 .card h3{margin:0 0 8px;font-size:.95rem}
 .card canvas,.card img,.card svg.stage{width:100%;height:auto;display:block;background:#fff;border-radius:12px}
 .themes{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
-.chip{appearance:none;border:2px solid var(--line);background:#fff;border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer;min-height:44px}
+.chip{appearance:none;border:2px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer;min-height:44px}
 .chip.on{background:#ffe8dc;border-color:var(--accent);color:#a0431a}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
 .thumb{background:#fff;border:2px solid var(--line);border-radius:18px;padding:10px;cursor:pointer;text-align:center;box-shadow:0 3px 0 #efe4d6}
@@ -105,7 +105,7 @@ textarea:focus,input[type=text]:focus{border-color:var(--accent2)}
     <div class="sliders" id="photoControls" hidden>
       <div class="slider">
         <label><span>Detail</span><span id="detailVal">Medium</span></label>
-        <input type="range" id="detail" min="0" max="100" value="55">
+        <input type="range" id="detail" min="0" max="100" value="48">
       </div>
       <div class="slider">
         <label><span>Line thickness</span><span id="thickVal">Medium</span></label>
@@ -320,13 +320,16 @@ function renderColoring(){
   const detail = +document.getElementById('detail').value; // 0..100
   const thick = +document.getElementById('thick').value;   // 1..6
   // Smooth then difference-of-gaussians / Sobel hybrid
-  const blurSmall = boxBlurGray(gray, w, h, 1);
-  const blurBig = boxBlurGray(gray, w, h, 3 + Math.round((100-detail)/25));
+  const pre = boxBlurGray(boxBlurGray(gray, w, h, 2), w, h, 2);
+  const rSmall = 1;
+  const rBig = 4 + Math.round((100-detail)/18);
+  const blurSmall = boxBlurGray(pre, w, h, rSmall);
+  const blurBig = boxBlurGray(pre, w, h, rBig);
   const dog = new Float32Array(w*h);
   for(let i=0;i<dog.length;i++) dog[i] = blurSmall[i] - blurBig[i];
 
   // Sobel magnitude on smoothed gray
-  const smooth = boxBlurGray(gray, w, h, 1);
+  const smooth = boxBlurGray(pre, w, h, 1);
   const mag = new Float32Array(w*h);
   for(let y=1;y<h-1;y++){
     for(let x=1;x<w-1;x++){
@@ -348,7 +351,7 @@ function renderColoring(){
     if(v>maxM) maxM = v;
   }
   // Threshold: higher detail => lower threshold => more lines
-  const t = maxM * (0.18 + (100-detail)/100 * 0.35);
+  const t = maxM * (0.22 + (100-detail)/100 * 0.38);
   const edges = new Uint8Array(w*h);
   for(let i=0;i<mag.length;i++) edges[i] = mag[i] > t ? 1 : 0;
 
@@ -387,7 +390,8 @@ function renderColoring(){
         if(dil[n]&&!seen[n]){seen[n]=1;stack[top++]=n;}
       }
     }
-    if(count<8) for(const p of cells) dil[p]=0;
+    const minSpeck = 24 + Math.round((100-detail)*0.6);
+    if(count<minSpeck) for(const p of cells) dil[p]=0;
   }
 
   const out = outCtx.createImageData(w,h);
